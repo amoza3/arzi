@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
+import type { User } from 'firebase/auth';
 
 import { getSummary } from '@/lib/actions';
 import {
@@ -68,21 +69,25 @@ import { Separator } from './ui/separator';
 import { Textarea } from './ui/textarea';
 
 const workLogSchema = z.object({
-  description: z.string().min(1, 'Description is required.'),
-  hours: z.coerce.number().positive('Hours must be a positive number.'),
-  rate: z.coerce.number().positive('Rate must be a positive number.'),
+  description: z.string().min(1, 'توضیحات الزامی است.'),
+  hours: z.coerce.number().positive('ساعت باید عدد مثبت باشد.'),
+  rate: z.coerce.number().positive('نرخ باید عدد مثبت باشد.'),
 });
 
 const paymentSchema = z.object({
-  amountIRT: z.coerce.number().positive('Amount must be a positive number.'),
+  amountIRT: z.coerce.number().positive('مبلغ باید عدد مثبت باشد.'),
   exchangeRate: z.coerce
     .number()
-    .positive('Exchange rate must be a positive number.'),
-  date: z.date({ required_error: 'A date is required.' }),
+    .positive('نرخ تبدیل باید عدد مثبت باشد.'),
+  date: z.date({ required_error: 'تاریخ الزامی است.' }),
   description: z.string().optional(),
 });
 
-export default function ArzCalculator() {
+interface ArzCalculatorProps {
+  user: User;
+}
+
+export default function ArzCalculator({ user }: ArzCalculatorProps) {
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [exchangeRate, setExchangeRate] = useState(0);
@@ -115,25 +120,27 @@ export default function ArzCalculator() {
 
   useEffect(() => {
     async function loadData() {
+      if (!user) return;
       try {
         const [logs, paymentsData] = await Promise.all([
-          getWorkLogs(),
-          getPayments(),
+          getWorkLogs(user.uid),
+          getPayments(user.uid),
         ]);
         setWorkLogs(logs);
         setPayments(paymentsData);
       } catch (error) {
+        console.error(error);
         toast({
           variant: 'destructive',
-          title: 'Error loading data',
-          description: 'Could not load data from browser storage.',
+          title: 'خطا در بارگذاری اطلاعات',
+          description: 'خطا در بارگذاری اطلاعات از Firestore.',
         });
       } finally {
         setIsDataLoaded(true);
       }
     }
     loadData();
-  }, [toast]);
+  }, [user, toast]);
 
   useEffect(() => {
     if (exchangeRate > 0 && !paymentForm.getValues('exchangeRate')) {
@@ -181,36 +188,36 @@ export default function ArzCalculator() {
     try {
       if (editingWorkLog) {
         const updatedLog = { ...editingWorkLog, ...values };
-        await updateWorkLog(updatedLog);
+        await updateWorkLog(user.uid, updatedLog);
         setWorkLogs(
           workLogs.map((log) => (log.id === updatedLog.id ? updatedLog : log))
         );
-        toast({ title: 'Success', description: 'Work log updated.' });
+        toast({ title: 'موفق', description: 'سابقه کار ویرایش شد.' });
       } else {
-        const newLogId = await addWorkLog(values);
-        setWorkLogs([...workLogs, { ...values, id: newLogId }]);
-        toast({ title: 'Success', description: 'Work log added.' });
+        const newLog = await addWorkLog(user.uid, values);
+        setWorkLogs([...workLogs, newLog]);
+        toast({ title: 'موفق', description: 'سابقه کار اضافه شد.' });
       }
       closeWorkLogDialog();
     } catch {
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: `Failed to ${editingWorkLog ? 'update' : 'add'} work log.`,
+        title: 'خطا',
+        description: `خطا در ${editingWorkLog ? 'ویرایش' : 'افزودن'} سابقه کار.`,
       });
     }
   };
 
-  const handleDeleteWorkLog = async (id: number) => {
+  const handleDeleteWorkLog = async (id: string) => {
     try {
-      await deleteWorkLog(id);
+      await deleteWorkLog(user.uid, id);
       setWorkLogs(workLogs.filter((log) => log.id !== id));
-      toast({ title: 'Success', description: 'Work log deleted.' });
+      toast({ title: 'موفق', description: 'سابقه کار حذف شد.' });
     } catch {
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to delete work log.',
+        title: 'خطا',
+        description: 'خطا در حذف سابقه کار.',
       });
     }
   };
@@ -223,36 +230,36 @@ export default function ArzCalculator() {
     try {
       if (editingPayment) {
         const updatedPayment = { ...editingPayment, ...paymentData };
-        await updatePayment(updatedPayment);
+        await updatePayment(user.uid, updatedPayment);
         setPayments(
           payments.map((p) => (p.id === updatedPayment.id ? updatedPayment : p))
         );
-        toast({ title: 'Success', description: 'Payment updated.' });
+        toast({ title: 'موفق', description: 'پرداخت ویرایش شد.' });
       } else {
-        const newPaymentId = await addPayment(paymentData);
-        setPayments([...payments, { ...paymentData, id: newPaymentId }]);
-        toast({ title: 'Success', description: 'Payment added.' });
+        const newPayment = await addPayment(user.uid, paymentData);
+        setPayments([...payments, newPayment]);
+        toast({ title: 'موفق', description: 'پرداخت اضافه شد.' });
       }
       closePaymentDialog();
     } catch {
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: `Failed to ${editingPayment ? 'update' : 'add'} payment.`,
+        title: 'خطا',
+        description: `خطا در ${editingPayment ? 'ویرایش' : 'افزودن'} پرداخت.`,
       });
     }
   };
 
-  const handleDeletePayment = async (id: number) => {
+  const handleDeletePayment = async (id: string) => {
     try {
-      await deletePayment(id);
+      await deletePayment(user.uid, id);
       setPayments(payments.filter((p) => p.id !== id));
-      toast({ title: 'Success', description: 'Payment deleted.' });
+      toast({ title: 'موفق', description: 'پرداخت حذف شد.' });
     } catch {
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to delete payment.',
+        title: 'خطا',
+        description: 'خطا در حذف پرداخت.',
       });
     }
   };
@@ -459,7 +466,7 @@ export default function ArzCalculator() {
                       <TableCell className="text-right font-headline">
                         {formatUSD(log.hours * log.rate)}
                       </TableCell>
-                      <TableCell className="no-print space-x-1">
+                      <TableCell className="no-print space-x-1 text-right">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -629,7 +636,7 @@ export default function ArzCalculator() {
                       <TableCell className="text-right font-headline">
                         {formatUSD(p.amountIRT / p.exchangeRate)}
                       </TableCell>
-                      <TableCell className="no-print space-x-1">
+                      <TableCell className="no-print space-x-1 text-right">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -723,5 +730,3 @@ export default function ArzCalculator() {
     </div>
   );
 }
-
-    

@@ -1,182 +1,99 @@
+import {
+  collection,
+  addDoc,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  doc,
+  query,
+  orderBy,
+  Timestamp,
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import type { WorkLog, Payment } from '@/types';
 
-const DB_NAME = 'ArzCalculatorDB';
-const DB_VERSION = 2; // Incremented version to handle schema change
-const WORK_LOG_STORE = 'workLogs';
+const WORK_LOG_STORE = 'work-logs';
 const PAYMENT_STORE = 'payments';
 
-let dbPromise: Promise<IDBDatabase> | null = null;
-
-const getDb = (): Promise<IDBDatabase> => {
-  if (typeof window === 'undefined') {
-    return Promise.reject(new Error('IndexedDB not available on server'));
-  }
-  if (!dbPromise) {
-    dbPromise = new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-      request.onerror = () => {
-        console.error('IndexedDB error:', request.error);
-        reject(request.error);
-      };
-
-      request.onsuccess = () => {
-        resolve(request.result);
-      };
-
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        const transaction = (event.target as IDBOpenDBRequest).transaction;
-
-        if (!db.objectStoreNames.contains(WORK_LOG_STORE)) {
-          db.createObjectStore(WORK_LOG_STORE, {
-            keyPath: 'id',
-            autoIncrement: true,
-          });
-        }
-        
-        // Handle migration for payments store
-        if (db.objectStoreNames.contains(PAYMENT_STORE)) {
-           if (event.oldVersion < 2) {
-            const paymentStore = transaction!.objectStore(PAYMENT_STORE);
-            const tempStoreName = "payments_temp";
-            const tempStore = db.createObjectStore(tempStoreName, { keyPath: 'id', autoIncrement: true });
-
-            paymentStore.openCursor().onsuccess = (e) => {
-              const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
-              if (cursor) {
-                const oldPayment = cursor.value;
-                const newPayment = { ...oldPayment, amountIRT: oldPayment.amountIRR, amountIRR: undefined };
-                delete newPayment.amountIRR;
-                tempStore.add(newPayment);
-                cursor.continue();
-              } else {
-                 db.deleteObjectStore(PAYMENT_STORE);
-                 db.createObjectStore(PAYMENT_STORE, { keyPath: 'id', autoIncrement: true }).onsuccess = () => {
-                    const finalStore = transaction!.objectStore(PAYMENT_STORE);
-                    const tempTx = db.transaction(tempStoreName, 'readonly');
-                    const tempObjStore = tempTx.objectStore(tempStoreName);
-                    tempObjStore.openCursor().onsuccess = (e) => {
-                        const cursor2 = (e.target as IDBRequest<IDBCursorWithValue>).result;
-                        if(cursor2) {
-                            finalStore.add(cursor2.value);
-                            cursor2.continue();
-                        } else {
-                            db.deleteObjectStore(tempStoreName);
-                        }
-                    }
-                 }
-              }
-            };
-           }
-        } else {
-             db.createObjectStore(PAYMENT_STORE, {
-                keyPath: 'id',
-                autoIncrement: true,
-            });
-        }
-      };
-    });
-  }
-  return dbPromise;
-};
+const getWorkLogsCollection = (userId: string) =>
+  collection(db, 'users', userId, WORK_LOG_STORE);
+const getPaymentsCollection = (userId: string) =>
+  collection(db, 'users', userId, PAYMENT_STORE);
 
 // Work Log Operations
-export const addWorkLog = async (log: Omit<WorkLog, 'id'>): Promise<number> => {
-  const db = await getDb();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(WORK_LOG_STORE, 'readwrite');
-    const store = transaction.objectStore(WORK_LOG_STORE);
-    const request = store.add(log);
-    request.onsuccess = () => resolve(request.result as number);
-    request.onerror = () => reject(request.error);
+export const addWorkLog = async (
+  userId: string,
+  log: Omit<WorkLog, 'id'>
+): Promise<WorkLog> => {
+  const docRef = await addDoc(getWorkLogsCollection(userId), {
+    ...log,
+    createdAt: Timestamp.now(),
   });
+  return { ...log, id: docRef.id };
 };
 
-export const getWorkLogs = async (): Promise<WorkLog[]> => {
-  const db = await getDb();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(WORK_LOG_STORE, 'readonly');
-    const store = transaction.objectStore(WORK_LOG_STORE);
-    const request = store.getAll();
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+export const getWorkLogs = async (userId: string): Promise<WorkLog[]> => {
+  const q = query(getWorkLogsCollection(userId), orderBy('createdAt', 'desc'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(
+    (doc) => ({ id: doc.id, ...doc.data() } as WorkLog)
+  );
 };
 
-export const updateWorkLog = async (log: WorkLog): Promise<number> => {
-  const db = await getDb();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(WORK_LOG_STORE, 'readwrite');
-    const store = transaction.objectStore(WORK_LOG_STORE);
-    const request = store.put(log);
-    request.onsuccess = () => resolve(request.result as number);
-    request.onerror = () => reject(request.error);
-  });
+export const updateWorkLog = async (
+  userId: string,
+  log: WorkLog
+): Promise<void> => {
+  if (!log.id) throw new Error('Log ID is required for update');
+  const docRef = doc(db, 'users', userId, WORK_LOG_STORE, log.id);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id, ...data } = log;
+  await updateDoc(docRef, data);
 };
 
-export const deleteWorkLog = async (id: number): Promise<void> => {
-  const db = await getDb();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(WORK_LOG_STORE, 'readwrite');
-    const store = transaction.objectStore(WORK_LOG_STORE);
-    const request = store.delete(id);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
+export const deleteWorkLog = async (
+  userId: string,
+  id: string
+): Promise<void> => {
+  const docRef = doc(db, 'users', userId, WORK_LOG_STORE, id);
+  await deleteDoc(docRef);
 };
 
 // Payment Operations
-export const addPayment = async (payment: Omit<Payment, 'id'>): Promise<number> => {
-  const db = await getDb();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(PAYMENT_STORE, 'readwrite');
-    const store = transaction.objectStore(PAYMENT_STORE);
-    const request = store.add(payment);
-    request.onsuccess = () => resolve(request.result as number);
-    request.onerror = () => reject(request.error);
+export const addPayment = async (
+  userId: string,
+  payment: Omit<Payment, 'id'>
+): Promise<Payment> => {
+  const docRef = await addDoc(getPaymentsCollection(userId), {
+    ...payment,
+    createdAt: Timestamp.now(),
   });
+  return { ...payment, id: docRef.id };
 };
 
-export const getPayments = async (): Promise<Payment[]> => {
-  const db = await getDb();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(PAYMENT_STORE, 'readonly');
-    const store = transaction.objectStore(PAYMENT_STORE);
-    const request = store.getAll();
-    request.onsuccess = (event) => {
-        const result = (event.target as IDBRequest).result.map((p: any) => {
-            if (p.amountIRR !== undefined && p.amountIRT === undefined) {
-                return {...p, amountIRT: p.amountIRR / 10, amountIRR: undefined };
-            }
-            return p;
-        });
-        resolve(result);
-    };
-    request.onerror = () => reject(request.error);
-  });
+export const getPayments = async (userId: string): Promise<Payment[]> => {
+  const q = query(getPaymentsCollection(userId), orderBy('date', 'desc'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(
+    (doc) => ({ id: doc.id, ...doc.data() } as Payment)
+  );
 };
 
-export const updatePayment = async (payment: Payment): Promise<number> => {
-  const db = await getDb();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(PAYMENT_STORE, 'readwrite');
-    const store = transaction.objectStore(PAYMENT_STORE);
-    const request = store.put(payment);
-    request.onsuccess = () => resolve(request.result as number);
-    request.onerror = () => reject(request.error);
-  });
+export const updatePayment = async (
+  userId: string,
+  payment: Payment
+): Promise<void> => {
+  if (!payment.id) throw new Error('Payment ID is required for update');
+  const docRef = doc(db, 'users', userId, PAYMENT_STORE, payment.id);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id, ...data } = payment;
+  await updateDoc(docRef, data);
 };
 
-export const deletePayment = async (id: number): Promise<void> => {
-  const db = await getDb();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(PAYMENT_STORE, 'readwrite');
-    const store = transaction.objectStore(PAYMENT_STORE);
-    const request = store.delete(id);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
+export const deletePayment = async (
+  userId: string,
+  id: string
+): Promise<void> => {
+  const docRef = doc(db, 'users', userId, PAYMENT_STORE, id);
+  await deleteDoc(docRef);
 };
-
-    
