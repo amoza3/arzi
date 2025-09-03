@@ -45,7 +45,7 @@ const getDb = (): Promise<IDBDatabase> => {
 };
 
 // Work Log Operations
-export const addWorkLog = async (log: WorkLog): Promise<number> => {
+export const addWorkLog = async (log: Omit<WorkLog, 'id'>): Promise<number> => {
   const db = await getDb();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(WORK_LOG_STORE, 'readwrite');
@@ -67,6 +67,17 @@ export const getWorkLogs = async (): Promise<WorkLog[]> => {
   });
 };
 
+export const updateWorkLog = async (log: WorkLog): Promise<number> => {
+  const db = await getDb();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(WORK_LOG_STORE, 'readwrite');
+    const store = transaction.objectStore(WORK_LOG_STORE);
+    const request = store.put(log);
+    request.onsuccess = () => resolve(request.result as number);
+    request.onerror = () => reject(request.error);
+  });
+};
+
 export const deleteWorkLog = async (id: number): Promise<void> => {
   const db = await getDb();
   return new Promise((resolve, reject) => {
@@ -79,7 +90,7 @@ export const deleteWorkLog = async (id: number): Promise<void> => {
 };
 
 // Payment Operations
-export const addPayment = async (payment: Payment): Promise<number> => {
+export const addPayment = async (payment: Omit<Payment, 'id'>): Promise<number> => {
   const db = await getDb();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(PAYMENT_STORE, 'readwrite');
@@ -97,6 +108,17 @@ export const getPayments = async (): Promise<Payment[]> => {
     const store = transaction.objectStore(PAYMENT_STORE);
     const request = store.getAll();
     request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+export const updatePayment = async (payment: Payment): Promise<number> => {
+  const db = await getDb();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(PAYMENT_STORE, 'readwrite');
+    const store = transaction.objectStore(PAYMENT_STORE);
+    const request = store.put(payment);
+    request.onsuccess = () => resolve(request.result as number);
     request.onerror = () => reject(request.error);
   });
 };

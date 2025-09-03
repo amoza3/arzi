@@ -1,10 +1,12 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Bot, Calculator, PlusCircle, Trash2 } from 'lucide-react';
+import { Bot, Calculator, Edit, PlusCircle, Printer, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { format } from 'date-fns';
+import { Calendar as CalendarIcon } from 'lucide-react';
 
 import { getSummary } from '@/lib/actions';
 import {
@@ -14,10 +16,14 @@ import {
   deleteWorkLog,
   getPayments,
   getWorkLogs,
+  updatePayment,
+  updateWorkLog,
 } from '@/lib/db';
 import type { Payment, WorkLog } from '@/types';
+import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import {
   Card,
   CardContent,
@@ -36,6 +42,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -43,6 +50,11 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   Table,
   TableBody,
@@ -53,6 +65,7 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from './ui/separator';
+import { Textarea } from './ui/textarea';
 
 const workLogSchema = z.object({
   description: z.string().min(1, 'Description is required.'),
@@ -65,6 +78,8 @@ const paymentSchema = z.object({
   exchangeRate: z.coerce
     .number()
     .positive('Exchange rate must be a positive number.'),
+  date: z.date({ required_error: 'A date is required.' }),
+  description: z.string().optional(),
 });
 
 export default function ArzCalculator() {
@@ -76,6 +91,9 @@ export default function ArzCalculator() {
   const [isAiLoading, startAiTransition] = useTransition();
 
   const { toast } = useToast();
+
+  const [editingWorkLog, setEditingWorkLog] = useState<WorkLog | null>(null);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
 
   const [isWorkLogDialogOpen, setWorkLogDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -90,6 +108,8 @@ export default function ArzCalculator() {
     defaultValues: {
       amountIRR: 0,
       exchangeRate: exchangeRate > 0 ? exchangeRate : 0,
+      date: new Date(),
+      description: '',
     },
   });
 
@@ -116,23 +136,67 @@ export default function ArzCalculator() {
   }, [toast]);
 
   useEffect(() => {
-    if (exchangeRate > 0) {
+    if (exchangeRate > 0 && !paymentForm.getValues('exchangeRate')) {
       paymentForm.setValue('exchangeRate', exchangeRate);
     }
   }, [exchangeRate, paymentForm]);
 
-  const handleAddWorkLog = async (values: z.infer<typeof workLogSchema>) => {
+  useEffect(() => {
+    if (editingWorkLog) {
+      workLogForm.reset(editingWorkLog);
+      setWorkLogDialogOpen(true);
+    } else {
+      workLogForm.reset({ description: '', hours: 0, rate: 0 });
+    }
+  }, [editingWorkLog, workLogForm]);
+
+  useEffect(() => {
+    if (editingPayment) {
+      paymentForm.reset({
+        ...editingPayment,
+        date: new Date(editingPayment.date),
+      });
+      setPaymentDialogOpen(true);
+    } else {
+      paymentForm.reset({
+        amountIRR: 0,
+        exchangeRate: exchangeRate > 0 ? exchangeRate : 0,
+        date: new Date(),
+        description: '',
+      });
+    }
+  }, [editingPayment, paymentForm, exchangeRate]);
+
+  const closeWorkLogDialog = () => {
+    setEditingWorkLog(null);
+    setWorkLogDialogOpen(false);
+  };
+
+  const closePaymentDialog = () => {
+    setEditingPayment(null);
+    setPaymentDialogOpen(false);
+  };
+
+  const handleWorkLogSubmit = async (values: z.infer<typeof workLogSchema>) => {
     try {
-      const newLogId = await addWorkLog(values);
-      setWorkLogs([...workLogs, { ...values, id: newLogId }]);
-      toast({ title: 'Success', description: 'Work log added.' });
-      workLogForm.reset();
-      setWorkLogDialogOpen(false);
+      if (editingWorkLog) {
+        const updatedLog = { ...editingWorkLog, ...values };
+        await updateWorkLog(updatedLog);
+        setWorkLogs(
+          workLogs.map((log) => (log.id === updatedLog.id ? updatedLog : log))
+        );
+        toast({ title: 'Success', description: 'Work log updated.' });
+      } else {
+        const newLogId = await addWorkLog(values);
+        setWorkLogs([...workLogs, { ...values, id: newLogId }]);
+        toast({ title: 'Success', description: 'Work log added.' });
+      }
+      closeWorkLogDialog();
     } catch {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to add work log.',
+        description: `Failed to ${editingWorkLog ? 'update' : 'add'} work log.`,
       });
     }
   };
@@ -151,19 +215,30 @@ export default function ArzCalculator() {
     }
   };
 
-  const handleAddPayment = async (values: z.infer<typeof paymentSchema>) => {
+  const handlePaymentSubmit = async (values: z.infer<typeof paymentSchema>) => {
+    const paymentData = {
+      ...values,
+      date: values.date.getTime(),
+    };
     try {
-      const newPayment = { ...values, date: Date.now() };
-      const newPaymentId = await addPayment(newPayment);
-      setPayments([...payments, { ...newPayment, id: newPaymentId }]);
-      toast({ title: 'Success', description: 'Payment added.' });
-      paymentForm.reset();
-      setPaymentDialogOpen(false);
+      if (editingPayment) {
+        const updatedPayment = { ...editingPayment, ...paymentData };
+        await updatePayment(updatedPayment);
+        setPayments(
+          payments.map((p) => (p.id === updatedPayment.id ? updatedPayment : p))
+        );
+        toast({ title: 'Success', description: 'Payment updated.' });
+      } else {
+        const newPaymentId = await addPayment(paymentData);
+        setPayments([...payments, { ...paymentData, id: newPaymentId }]);
+        toast({ title: 'Success', description: 'Payment added.' });
+      }
+      closePaymentDialog();
     } catch {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to add payment.',
+        description: `Failed to ${editingPayment ? 'update' : 'add'} payment.`,
       });
     }
   };
@@ -229,6 +304,10 @@ export default function ArzCalculator() {
     });
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   const formatUSD = (amount: number) =>
     new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -249,6 +328,14 @@ export default function ArzCalculator() {
 
   return (
     <div className="container mx-auto p-4 md:p-8">
+      <style>{`
+        @media print {
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .no-print { display: none !important; }
+          .container { max-width: 100% !important; padding: 0 !important; }
+          .card { box-shadow: none !important; border: 1px solid #ccc; }
+        }
+      `}</style>
       <header className="mb-8 flex flex-col items-center justify-between gap-4 md:flex-row">
         <div className="flex items-center gap-3">
           <div className="rounded-lg bg-primary/20 p-2 text-primary">
@@ -256,15 +343,20 @@ export default function ArzCalculator() {
           </div>
           <h1 className="font-headline text-4xl font-bold">Arz Calculator</h1>
         </div>
-        <div className="w-full md:w-auto">
-          <Label>USD to IRR Rate</Label>
-          <Input
-            type="number"
-            placeholder="e.g., 500000"
-            value={exchangeRate || ''}
-            onChange={(e) => setExchangeRate(Number(e.target.value))}
-            className="w-full text-center font-headline text-lg md:w-48"
-          />
+        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-end">
+          <div className="w-full md:w-auto">
+            <Label>USD to IRR Rate</Label>
+            <Input
+              type="number"
+              placeholder="e.g., 500000"
+              value={exchangeRate || ''}
+              onChange={(e) => setExchangeRate(Number(e.target.value))}
+              className="w-full text-center font-headline text-lg md:w-48"
+            />
+          </div>
+          <Button onClick={handlePrint} variant="outline" className="no-print">
+            <Printer className="mr-2" /> Print
+          </Button>
         </div>
       </header>
 
@@ -280,17 +372,17 @@ export default function ArzCalculator() {
               onOpenChange={setWorkLogDialogOpen}
             >
               <DialogTrigger asChild>
-                <Button className="mt-2 w-full md:w-auto">
+                <Button className="mt-2 w-full md:w-auto no-print">
                   <PlusCircle className="mr-2" /> Add Entry
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="no-print">
                 <DialogHeader>
-                  <DialogTitle>Add New Work Log</DialogTitle>
+                  <DialogTitle>{editingWorkLog ? 'Edit' : 'Add New'} Work Log</DialogTitle>
                 </DialogHeader>
                 <Form {...workLogForm}>
                   <form
-                    onSubmit={workLogForm.handleSubmit(handleAddWorkLog)}
+                    onSubmit={workLogForm.handleSubmit(handleWorkLogSubmit)}
                     className="space-y-4"
                   >
                     <FormField
@@ -348,7 +440,7 @@ export default function ArzCalculator() {
                   <TableHead className="text-right">Hours</TableHead>
                   <TableHead className="text-right">Rate</TableHead>
                   <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
+                  <TableHead className="w-[100px] no-print"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -367,7 +459,14 @@ export default function ArzCalculator() {
                       <TableCell className="text-right font-headline">
                         {formatUSD(log.hours * log.rate)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="no-print space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setEditingWorkLog(log)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -399,17 +498,17 @@ export default function ArzCalculator() {
               onOpenChange={setPaymentDialogOpen}
             >
               <DialogTrigger asChild>
-                <Button className="mt-2 w-full md:w-auto">
+                <Button className="mt-2 w-full md:w-auto no-print">
                   <PlusCircle className="mr-2" /> Add Payment
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="no-print">
                 <DialogHeader>
-                  <DialogTitle>Add New Payment</DialogTitle>
+                  <DialogTitle>{editingPayment ? 'Edit' : 'Add New'} Payment</DialogTitle>
                 </DialogHeader>
                 <Form {...paymentForm}>
                   <form
-                    onSubmit={paymentForm.handleSubmit(handleAddPayment)}
+                    onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)}
                     className="space-y-4"
                   >
                     <FormField
@@ -438,6 +537,63 @@ export default function ArzCalculator() {
                         </FormItem>
                       )}
                     />
+                     <FormField
+                      control={paymentForm.control}
+                      name="date"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Payment Date</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant={'outline'}
+                                  className={cn(
+                                    'w-full pl-3 text-left font-normal',
+                                    !field.value && 'text-muted-foreground'
+                                  )}
+                                >
+                                  {field.value ? (
+                                    format(field.value, 'PPP')
+                                  ) : (
+                                    <span>Pick a date</span>
+                                  )}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                disabled={(date) =>
+                                  date > new Date() || date < new Date('1900-01-01')
+                                }
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={paymentForm.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Description (Optional)</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="e.g., Payment for project X"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <Button type="submit">Save Payment</Button>
                   </form>
                 </Form>
@@ -449,10 +605,11 @@ export default function ArzCalculator() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
+                  <TableHead>Description</TableHead>
                   <TableHead className="text-right">Amount (IRR)</TableHead>
                   <TableHead className="text-right">Rate</TableHead>
                   <TableHead className="text-right">Amount (USD)</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
+                  <TableHead className="w-[100px] no-print"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -462,6 +619,7 @@ export default function ArzCalculator() {
                       <TableCell>
                         {new Date(p.date).toLocaleDateString()}
                       </TableCell>
+                       <TableCell>{p.description || '-'}</TableCell>
                       <TableCell className="text-right font-code">
                         {formatNumber(p.amountIRR)}
                       </TableCell>
@@ -471,7 +629,14 @@ export default function ArzCalculator() {
                       <TableCell className="text-right font-headline">
                         {formatUSD(p.amountIRR / p.exchangeRate)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="no-print space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setEditingPayment(p)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -484,7 +649,7 @@ export default function ArzCalculator() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center">
+                    <TableCell colSpan={6} className="text-center">
                       No payments recorded.
                     </TableCell>
                   </TableRow>
@@ -544,7 +709,7 @@ export default function ArzCalculator() {
           </div>
         </CardContent>
         <CardFooter className="flex-col items-start gap-4">
-          <Button onClick={handleGenerateSummary} disabled={isAiLoading}>
+          <Button onClick={handleGenerateSummary} disabled={isAiLoading} className="no-print">
             <Bot className="mr-2" />
             {isAiLoading ? 'Generating...' : 'Generate AI Summary'}
           </Button>

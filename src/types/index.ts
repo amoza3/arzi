@@ -10,4 +10,5 @@ export interface Payment {
   amountIRR: number;
   exchangeRate: number;
   date: number; // Stored as timestamp
+  description?: string;
 }
