@@ -314,20 +314,20 @@ export default function ArzCalculator() {
       currency: 'USD',
     }).format(amount);
   const formatIRR = (amount: number) =>
-    new Intl.NumberFormat('fa-IR').format(amount) + ' IRR';
+    new Intl.NumberFormat('fa-IR').format(amount) + ' ریال';
   const formatNumber = (num: number) =>
     new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(num);
 
   if (!isDataLoaded) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p>Loading data...</p>
+        <p>در حال بارگذاری اطلاعات...</p>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-8">
+    <div className="container mx-auto p-4 md:p-8" dir="rtl">
       <style>{`
         @media print {
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -341,21 +341,21 @@ export default function ArzCalculator() {
           <div className="rounded-lg bg-primary/20 p-2 text-primary">
             <Calculator className="h-8 w-8" />
           </div>
-          <h1 className="font-headline text-4xl font-bold">Arz Calculator</h1>
+          <h1 className="font-headline text-4xl font-bold">محاسبه‌گر ارز</h1>
         </div>
         <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-end">
           <div className="w-full md:w-auto">
-            <Label>USD to IRR Rate</Label>
+            <Label>نرخ دلار به ریال</Label>
             <Input
               type="number"
-              placeholder="e.g., 500000"
+              placeholder="مثال: ۵۰۰۰۰۰"
               value={exchangeRate || ''}
               onChange={(e) => setExchangeRate(Number(e.target.value))}
               className="w-full text-center font-headline text-lg md:w-48"
             />
           </div>
           <Button onClick={handlePrint} variant="outline" className="no-print">
-            <Printer className="mr-2" /> Print
+            <Printer className="ml-2" /> چاپ
           </Button>
         </div>
       </header>
@@ -363,9 +363,9 @@ export default function ArzCalculator() {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Work Logs</CardTitle>
+            <CardTitle>سوابق کاری</CardTitle>
             <CardDescription>
-              Record your work hours and rates.
+              ساعات و نرخ کار خود را ثبت کنید.
             </CardDescription>
             <Dialog
               open={isWorkLogDialogOpen}
@@ -373,12 +373,12 @@ export default function ArzCalculator() {
             >
               <DialogTrigger asChild>
                 <Button className="mt-2 w-full md:w-auto no-print">
-                  <PlusCircle className="mr-2" /> Add Entry
+                  <PlusCircle className="ml-2" /> افزودن رکورد
                 </Button>
               </DialogTrigger>
               <DialogContent className="no-print">
                 <DialogHeader>
-                  <DialogTitle>{editingWorkLog ? 'Edit' : 'Add New'} Work Log</DialogTitle>
+                  <DialogTitle>{editingWorkLog ? 'ویرایش' : 'افزودن'} سابقه کار</DialogTitle>
                 </DialogHeader>
                 <Form {...workLogForm}>
                   <form
@@ -390,9 +390,9 @@ export default function ArzCalculator() {
                       name="description"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Description</FormLabel>
+                          <FormLabel>شرح</FormLabel>
                           <FormControl>
-                            <Input placeholder="e.g., Feature development" {...field} />
+                            <Input placeholder="مثال: توسعه فیچر" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -404,7 +404,7 @@ export default function ArzCalculator() {
                         name="hours"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Hours</FormLabel>
+                            <FormLabel>ساعات</FormLabel>
                             <FormControl>
                               <Input type="number" step="0.1" {...field} />
                             </FormControl>
@@ -417,7 +417,7 @@ export default function ArzCalculator() {
                         name="rate"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Rate (USD/hr)</FormLabel>
+                            <FormLabel>نرخ (دلار/ساعت)</FormLabel>
                             <FormControl>
                               <Input type="number" step="0.01" {...field} />
                             </FormControl>
@@ -426,7 +426,7 @@ export default function ArzCalculator() {
                         )}
                       />
                     </div>
-                    <Button type="submit">Save Entry</Button>
+                    <Button type="submit">ذخیره</Button>
                   </form>
                 </Form>
               </DialogContent>
@@ -436,10 +436,10 @@ export default function ArzCalculator() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Hours</TableHead>
-                  <TableHead className="text-right">Rate</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>شرح</TableHead>
+                  <TableHead className="text-right">ساعات</TableHead>
+                  <TableHead className="text-right">نرخ</TableHead>
+                  <TableHead className="text-right">جمع</TableHead>
                   <TableHead className="w-[100px] no-print"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -480,7 +480,7 @@ export default function ArzCalculator() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center">
-                      No work logs yet.
+                      هنوز سابقه کاری ثبت نشده است.
                     </TableCell>
                   </TableRow>
                 )}
@@ -491,20 +491,20 @@ export default function ArzCalculator() {
 
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Payments</CardTitle>
-            <CardDescription>Log all payments received.</CardDescription>
+            <CardTitle>پرداخت‌ها</CardTitle>
+            <CardDescription>تمام پرداخت‌های دریافت شده را ثبت کنید.</CardDescription>
             <Dialog
               open={isPaymentDialogOpen}
               onOpenChange={setPaymentDialogOpen}
             >
               <DialogTrigger asChild>
                 <Button className="mt-2 w-full md:w-auto no-print">
-                  <PlusCircle className="mr-2" /> Add Payment
+                  <PlusCircle className="ml-2" /> افزودن پرداخت
                 </Button>
               </DialogTrigger>
               <DialogContent className="no-print">
                 <DialogHeader>
-                  <DialogTitle>{editingPayment ? 'Edit' : 'Add New'} Payment</DialogTitle>
+                  <DialogTitle>{editingPayment ? 'ویرایش' : 'افزودن'} پرداخت</DialogTitle>
                 </DialogHeader>
                 <Form {...paymentForm}>
                   <form
@@ -516,7 +516,7 @@ export default function ArzCalculator() {
                       name="amountIRR"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Amount (IRR)</FormLabel>
+                          <FormLabel>مبلغ (ریال)</FormLabel>
                           <FormControl>
                             <Input type="number" {...field} />
                           </FormControl>
@@ -529,7 +529,7 @@ export default function ArzCalculator() {
                       name="exchangeRate"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>USD to IRR Rate (at payment time)</FormLabel>
+                          <FormLabel>نرخ دلار به ریال (زمان پرداخت)</FormLabel>
                           <FormControl>
                             <Input type="number" {...field} />
                           </FormControl>
@@ -542,7 +542,7 @@ export default function ArzCalculator() {
                       name="date"
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
-                          <FormLabel>Payment Date</FormLabel>
+                          <FormLabel>تاریخ پرداخت</FormLabel>
                           <Popover>
                             <PopoverTrigger asChild>
                               <FormControl>
@@ -556,9 +556,9 @@ export default function ArzCalculator() {
                                   {field.value ? (
                                     format(field.value, 'PPP')
                                   ) : (
-                                    <span>Pick a date</span>
+                                    <span>یک تاریخ انتخاب کنید</span>
                                   )}
-                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                  <CalendarIcon className="mr-auto h-4 w-4 opacity-50" />
                                 </Button>
                               </FormControl>
                             </PopoverTrigger>
@@ -583,10 +583,10 @@ export default function ArzCalculator() {
                       name="description"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Description (Optional)</FormLabel>
+                          <FormLabel>شرح (اختیاری)</FormLabel>
                           <FormControl>
                             <Textarea
-                              placeholder="e.g., Payment for project X"
+                              placeholder="مثال: پرداخت برای پروژه X"
                               {...field}
                             />
                           </FormControl>
@@ -594,7 +594,7 @@ export default function ArzCalculator() {
                         </FormItem>
                       )}
                     />
-                    <Button type="submit">Save Payment</Button>
+                    <Button type="submit">ذخیره پرداخت</Button>
                   </form>
                 </Form>
               </DialogContent>
@@ -604,11 +604,11 @@ export default function ArzCalculator() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Amount (IRR)</TableHead>
-                  <TableHead className="text-right">Rate</TableHead>
-                  <TableHead className="text-right">Amount (USD)</TableHead>
+                  <TableHead>تاریخ</TableHead>
+                  <TableHead>شرح</TableHead>
+                  <TableHead className="text-right">مبلغ (ریال)</TableHead>
+                  <TableHead className="text-right">نرخ</TableHead>
+                  <TableHead className="text-right">مبلغ (دلار)</TableHead>
                   <TableHead className="w-[100px] no-print"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -617,7 +617,7 @@ export default function ArzCalculator() {
                   payments.map((p) => (
                     <TableRow key={p.id}>
                       <TableCell>
-                        {new Date(p.date).toLocaleDateString()}
+                        {new Date(p.date).toLocaleDateString('fa-IR')}
                       </TableCell>
                        <TableCell>{p.description || '-'}</TableCell>
                       <TableCell className="text-right font-code">
@@ -650,7 +650,7 @@ export default function ArzCalculator() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center">
-                      No payments recorded.
+                      هنوز پرداختی ثبت نشده است.
                     </TableCell>
                   </TableRow>
                 )}
@@ -662,30 +662,30 @@ export default function ArzCalculator() {
 
       <Card className="mt-8 shadow-lg">
         <CardHeader>
-          <CardTitle>Account Summary</CardTitle>
+          <CardTitle>خلاصه حساب</CardTitle>
           <CardDescription>
-            An overview of your earnings and payments.
+            مروری بر درآمدها و پرداخت‌های شما.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-x-8 gap-y-4 md:grid-cols-4">
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">Total Hours</p>
+            <p className="text-sm text-muted-foreground">جمع ساعات</p>
             <p className="font-headline text-2xl">{formatNumber(totalHours)}</p>
           </div>
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">Total Earnings</p>
+            <p className="text-sm text-muted-foreground">جمع درآمد</p>
             <p className="font-headline text-2xl">
               {formatUSD(totalEarningsUSD)}
             </p>
           </div>
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">Total Paid (USD)</p>
+            <p className="text-sm text-muted-foreground">جمع پرداختی (دلار)</p>
             <p className="font-headline text-2xl text-green-600">
               {formatUSD(totalPaymentsUSD)}
             </p>
           </div>
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">Total Paid (IRR)</p>
+            <p className="text-sm text-muted-foreground">جمع پرداختی (ریال)</p>
             <p className="font-headline text-lg text-green-600">
               {formatIRR(totalPaymentsIRR)}
             </p>
@@ -694,24 +694,24 @@ export default function ArzCalculator() {
             <Separator />
           </div>
           <div className="col-span-2 space-y-1 md:col-start-3">
-            <p className="text-sm text-muted-foreground">Balance Due (USD)</p>
+            <p className="text-sm text-muted-foreground">بدهی (دلار)</p>
             <p className="font-headline text-3xl text-destructive">
               {formatUSD(balanceUSD)}
             </p>
           </div>
           <div className="col-span-2 space-y-1 md:col-start-4">
-            <p className="text-sm text-muted-foreground">Balance Due (IRR)</p>
+            <p className="text-sm text-muted-foreground">بدهی (ریال)</p>
             <p className="font-headline text-2xl text-destructive">
               {exchangeRate > 0
                 ? formatIRR(balanceIRR)
-                : 'Enter rate to see'}
+                : 'نرخ را وارد کنید'}
             </p>
           </div>
         </CardContent>
         <CardFooter className="flex-col items-start gap-4">
           <Button onClick={handleGenerateSummary} disabled={isAiLoading} className="no-print">
-            <Bot className="mr-2" />
-            {isAiLoading ? 'Generating...' : 'Generate AI Summary'}
+            <Bot className="ml-2" />
+            {isAiLoading ? 'در حال تولید...' : 'خلاصه با هوش مصنوعی'}
           </Button>
           {aiSummary && (
             <div className="mt-4 w-full rounded-lg border bg-muted/50 p-4 text-sm">
