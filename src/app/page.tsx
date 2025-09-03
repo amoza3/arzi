@@ -13,7 +13,7 @@ import { LogOut } from 'lucide-react';
 // You can find your UID by logging into your live app on Vercel,
 // opening the browser console (F12), and typing: `firebase.auth().currentUser.uid`
 const MOCK_USER: User = {
-  uid: 'YOUR_REAL_USER_ID', // <-- IMPORTANT: REPLACE THIS VALUE
+  uid: 'l0rwK4cDCsTH1UqXO13YkF2elJr2', // <-- IMPORTANT: REPLACE THIS VALUE
   email: 'test@example.com',
   displayName: 'کاربر آزمایشی',
   photoURL: '',
