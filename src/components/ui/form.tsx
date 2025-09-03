@@ -50,12 +50,15 @@ const useFormField = () => {
     throw new Error("useFormField should be used within <FormField>")
   }
 
-  if (!form) {
-    throw new Error("useFormField should be used within a <Form>")
-  }
+  const { getFieldState, formState } = form || {}
 
-  const { getFieldState, formState } = form
-  const fieldState = getFieldState(fieldContext.name, formState)
+  if (!form) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("useFormField should be used within a <Form>")
+    }
+  }
+  
+  const fieldState = getFieldState?.(fieldContext.name, formState)
 
   const { id } = itemContext
 

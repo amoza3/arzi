@@ -256,7 +256,7 @@ export default function ArzCalculator() {
           <h1 className="font-headline text-4xl font-bold">Arz Calculator</h1>
         </div>
         <div className="w-full md:w-auto">
-          <FormLabel>USD to IRR Rate</FormLabel>
+          <Label>USD to IRR Rate</Label>
           <Input
             type="number"
             placeholder="e.g., 500000"
