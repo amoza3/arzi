@@ -74,7 +74,7 @@ const workLogSchema = z.object({
 });
 
 const paymentSchema = z.object({
-  amountIRR: z.coerce.number().positive('Amount must be a positive number.'),
+  amountIRT: z.coerce.number().positive('Amount must be a positive number.'),
   exchangeRate: z.coerce
     .number()
     .positive('Exchange rate must be a positive number.'),
@@ -106,7 +106,7 @@ export default function ArzCalculator() {
   const paymentForm = useForm<z.infer<typeof paymentSchema>>({
     resolver: zodResolver(paymentSchema),
     defaultValues: {
-      amountIRR: 0,
+      amountIRT: 0,
       exchangeRate: exchangeRate > 0 ? exchangeRate : 0,
       date: new Date(),
       description: '',
@@ -159,7 +159,7 @@ export default function ArzCalculator() {
       setPaymentDialogOpen(true);
     } else {
       paymentForm.reset({
-        amountIRR: 0,
+        amountIRT: 0,
         exchangeRate: exchangeRate > 0 ? exchangeRate : 0,
         date: new Date(),
         description: '',
@@ -260,33 +260,33 @@ export default function ArzCalculator() {
   const {
     totalHours,
     totalEarningsUSD,
-    totalPaymentsIRR,
+    totalPaymentsIRT,
     totalPaymentsUSD,
     balanceUSD,
-    balanceIRR,
+    balanceIRT,
   } = useMemo(() => {
     const totalHours = workLogs.reduce((sum, log) => sum + log.hours, 0);
     const totalEarningsUSD = workLogs.reduce(
       (sum, log) => sum + log.hours * log.rate,
       0
     );
-    const totalPaymentsIRR = payments.reduce(
-      (sum, p) => sum + p.amountIRR,
+    const totalPaymentsIRT = payments.reduce(
+      (sum, p) => sum + p.amountIRT,
       0
     );
     const totalPaymentsUSD = payments.reduce(
-      (sum, p) => sum + p.amountIRR / p.exchangeRate,
+      (sum, p) => sum + p.amountIRT / p.exchangeRate,
       0
     );
     const balanceUSD = totalEarningsUSD - totalPaymentsUSD;
-    const balanceIRR = exchangeRate > 0 ? balanceUSD * exchangeRate : 0;
+    const balanceIRT = exchangeRate > 0 ? balanceUSD * exchangeRate : 0;
     return {
       totalHours,
       totalEarningsUSD,
-      totalPaymentsIRR,
+      totalPaymentsIRT,
       totalPaymentsUSD,
       balanceUSD,
-      balanceIRR,
+      balanceIRT,
     };
   }, [workLogs, payments, exchangeRate]);
 
@@ -295,9 +295,9 @@ export default function ArzCalculator() {
       const summary = await getSummary({
         totalHoursWorked: totalHours,
         totalEarningsUSD: totalEarningsUSD,
-        totalPaymentsIRR: totalPaymentsIRR,
+        totalPaymentsIRT: totalPaymentsIRT,
         totalPaymentsUSD: totalPaymentsUSD,
-        remainingBalanceIRR: balanceIRR,
+        remainingBalanceIRT: balanceIRT,
         remainingBalanceUSD: balanceUSD,
       });
       setAiSummary(summary.summary);
@@ -313,8 +313,8 @@ export default function ArzCalculator() {
       style: 'currency',
       currency: 'USD',
     }).format(amount);
-  const formatIRR = (amount: number) =>
-    new Intl.NumberFormat('fa-IR').format(amount) + ' ریال';
+  const formatIRT = (amount: number) =>
+    new Intl.NumberFormat('fa-IR').format(amount) + ' تومان';
   const formatNumber = (num: number) =>
     new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(num);
 
@@ -345,10 +345,10 @@ export default function ArzCalculator() {
         </div>
         <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-end">
           <div className="w-full md:w-auto">
-            <Label>نرخ دلار به ریال</Label>
+            <Label>نرخ دلار به تومان</Label>
             <Input
               type="number"
-              placeholder="مثال: ۵۰۰۰۰۰"
+              placeholder="مثال: ۵۰۰۰۰"
               value={exchangeRate || ''}
               onChange={(e) => setExchangeRate(Number(e.target.value))}
               className="w-full text-center font-headline text-lg md:w-48"
@@ -513,10 +513,10 @@ export default function ArzCalculator() {
                   >
                     <FormField
                       control={paymentForm.control}
-                      name="amountIRR"
+                      name="amountIRT"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>مبلغ (ریال)</FormLabel>
+                          <FormLabel>مبلغ (تومان)</FormLabel>
                           <FormControl>
                             <Input type="number" {...field} />
                           </FormControl>
@@ -529,7 +529,7 @@ export default function ArzCalculator() {
                       name="exchangeRate"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>نرخ دلار به ریال (زمان پرداخت)</FormLabel>
+                          <FormLabel>نرخ دلار به تومان (زمان پرداخت)</FormLabel>
                           <FormControl>
                             <Input type="number" {...field} />
                           </FormControl>
@@ -606,7 +606,7 @@ export default function ArzCalculator() {
                 <TableRow>
                   <TableHead>تاریخ</TableHead>
                   <TableHead>شرح</TableHead>
-                  <TableHead className="text-right">مبلغ (ریال)</TableHead>
+                  <TableHead className="text-right">مبلغ (تومان)</TableHead>
                   <TableHead className="text-right">نرخ</TableHead>
                   <TableHead className="text-right">مبلغ (دلار)</TableHead>
                   <TableHead className="w-[100px] no-print"></TableHead>
@@ -621,13 +621,13 @@ export default function ArzCalculator() {
                       </TableCell>
                        <TableCell>{p.description || '-'}</TableCell>
                       <TableCell className="text-right font-code">
-                        {formatNumber(p.amountIRR)}
+                        {formatNumber(p.amountIRT)}
                       </TableCell>
                       <TableCell className="text-right font-code">
                         {formatNumber(p.exchangeRate)}
                       </TableCell>
                       <TableCell className="text-right font-headline">
-                        {formatUSD(p.amountIRR / p.exchangeRate)}
+                        {formatUSD(p.amountIRT / p.exchangeRate)}
                       </TableCell>
                       <TableCell className="no-print space-x-1">
                         <Button
@@ -685,9 +685,9 @@ export default function ArzCalculator() {
             </p>
           </div>
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">جمع پرداختی (ریال)</p>
+            <p className="text-sm text-muted-foreground">جمع پرداختی (تومان)</p>
             <p className="font-headline text-lg text-green-600">
-              {formatIRR(totalPaymentsIRR)}
+              {formatIRT(totalPaymentsIRT)}
             </p>
           </div>
           <div className="col-span-2 mt-4 space-y-1 md:col-span-4">
@@ -700,10 +700,10 @@ export default function ArzCalculator() {
             </p>
           </div>
           <div className="col-span-2 space-y-1 md:col-start-4">
-            <p className="text-sm text-muted-foreground">بدهی (ریال)</p>
+            <p className="text-sm text-muted-foreground">بدهی (تومان)</p>
             <p className="font-headline text-2xl text-destructive">
               {exchangeRate > 0
-                ? formatIRR(balanceIRR)
+                ? formatIRT(balanceIRT)
                 : 'نرخ را وارد کنید'}
             </p>
           </div>
@@ -723,3 +723,5 @@ export default function ArzCalculator() {
     </div>
   );
 }
+
+    

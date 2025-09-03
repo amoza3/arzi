@@ -7,8 +7,10 @@ export interface WorkLog {
 
 export interface Payment {
   id?: number;
-  amountIRR: number;
+  amountIRT: number;
   exchangeRate: number;
   date: number; // Stored as timestamp
   description?: string;
 }
+
+    
