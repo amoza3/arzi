@@ -1,3 +1,9 @@
+import ArzCalculator from '@/components/arz-calculator';
+
 export default function Home() {
-  return <></>;
+  return (
+    <main>
+      <ArzCalculator />
+    </main>
+  );
 }
