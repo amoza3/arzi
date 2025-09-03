@@ -1,0 +1,29 @@
+mutation CreateArz @auth(level: USER) {
+  arz_insert(data: {
+    # Add necessary fields here based on your schema
+    # Example:
+    # userId_expr: "auth.uid",
+    # name: "New Arz"
+  })
+}
+
+query ListArzs @auth(level: USER) {
+  arzs {
+    # Add the fields you want to retrieve
+    # Example:
+    # id
+    # name
+  }
+}
+
+mutation UpdateArz($id: UUID!) @auth(level: USER) {
+  arz_update(key: {id: $id}, data: {
+    # Add the fields you want to update
+    # Example:
+    # name: "Updated Arz Name"
+  })
+}
+
+mutation DeleteArz($id: UUID!) @auth(level: USER) {
+  arz_delete(key: {id: $id})
+}
