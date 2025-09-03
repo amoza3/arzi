@@ -8,19 +8,50 @@ import ArzCalculator from '@/components/arz-calculator';
 import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
 
+const MOCK_USER: User = {
+  uid: 'mock-user-id-12345',
+  email: 'test@example.com',
+  displayName: 'کاربر آزمایشی',
+  photoURL: '',
+  emailVerified: true,
+  isAnonymous: false,
+  metadata: {},
+  providerData: [],
+  providerId: 'mock',
+  tenantId: null,
+  delete: async () => {},
+  getIdToken: async () => '',
+  getIdTokenResult: async () => ({} as any),
+  reload: async () => {},
+  toJSON: () => ({}),
+};
+
+
 export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const useMockAuth = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true';
+
   useEffect(() => {
+    if (useMockAuth) {
+      setUser(MOCK_USER);
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [useMockAuth]);
 
   const handleSignOut = async () => {
+    if (useMockAuth) {
+      setUser(null);
+      return;
+    }
     try {
       await auth.signOut();
       setUser(null);
@@ -41,7 +72,7 @@ export default function Home() {
     <main>
       {user ? (
         <>
-          <div className="absolute top-4 left-4 z-10">
+          <div className="absolute top-4 left-4 z-10 no-print">
             <Button variant="outline" onClick={handleSignOut}>
               <LogOut className="ml-2" />
               خروج
