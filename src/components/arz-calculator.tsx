@@ -503,9 +503,9 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>شرح</TableHead>
-                      <TableHead>شروع</TableHead>
-                      <TableHead>پایان</TableHead>
+                      <TableHead className="min-w-[150px]">شرح</TableHead>
+                      <TableHead className="min-w-[150px]">شروع</TableHead>
+                      <TableHead className="min-w-[150px]">پایان</TableHead>
                       <TableHead className="text-right">ساعات</TableHead>
                       <TableHead className="text-right">نرخ</TableHead>
                       <TableHead className="text-right">جمع</TableHead>
@@ -521,13 +521,13 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
                     ) : clockifyWorkLogs.length > 0 ? (
                       clockifyWorkLogs.map((log) => (
                         <TableRow key={log.id}>
-                          <TableCell className="font-medium max-w-[150px] truncate">
+                          <TableCell className="font-medium">
                             {log.description}
                           </TableCell>
-                          <TableCell className="font-code text-xs whitespace-nowrap">
+                          <TableCell className="font-code text-xs">
                             {formatDateTime(log.start)}
                           </TableCell>
-                          <TableCell className="font-code text-xs whitespace-nowrap">
+                          <TableCell className="font-code text-xs">
                             {formatDateTime(log.end)}
                           </TableCell>
                           <TableCell className="text-right font-code">
