@@ -453,11 +453,11 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
         @media print {
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .no-print { display: none !important; }
-          .container { max-width: 100% !important; padding: 0 !important; }
+          .container { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
           .card { box-shadow: none !important; border: 1px solid #ccc; }
         }
       `}</style>
-      <header className="mb-8 flex flex-col items-center justify-between gap-4 md:flex-row">
+      <header className="mb-8 flex flex-col items-center justify-between gap-4 md:flex-row no-print">
         <div className="flex items-center gap-3">
           <div className="rounded-lg bg-primary/20 p-2 text-primary">
             <Calculator className="h-8 w-8" />
@@ -482,79 +482,6 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
       </header>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <Card className="flex flex-col">
-           <CardHeader>
-             <div className="flex flex-wrap justify-between items-center gap-2">
-                <div>
-                    <CardTitle>سوابق کاری Clockify</CardTitle>
-                    <CardDescription>
-                      سوابق کاری همگام‌شده از Clockify.
-                    </CardDescription>
-                </div>
-                <div className='flex gap-2 no-print'>
-                    <Button onClick={handleSyncClockify} disabled={isSyncing}>
-                      <RefreshCw className={cn("ml-2", isSyncing && "animate-spin")} />
-                      {isSyncing ? 'در حال دریافت...' : 'همگام‌سازی'}
-                    </Button>
-                </div>
-            </div>
-          </CardHeader>
-          <CardContent className="flex-grow overflow-hidden">
-            <ScrollArea className="h-[400px] pr-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="min-w-[250px]">شرح</TableHead>
-                    <TableHead>شروع</TableHead>
-                    <TableHead>پایان</TableHead>
-                    <TableHead className="text-right">ساعات</TableHead>
-                    <TableHead className="text-right">نرخ</TableHead>
-                    <TableHead className="text-right">جمع</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isSyncing && clockifyWorkLogs.length === 0 ? (
-                      <>
-                          <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                          <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                          <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                      </>
-                  ) : clockifyWorkLogs.length > 0 ? (
-                    clockifyWorkLogs.map((log) => (
-                      <TableRow key={log.id}>
-                        <TableCell className="font-medium">
-                          {log.description}
-                        </TableCell>
-                        <TableCell className='whitespace-nowrap'>
-                          {formatDateTime(log.start)}
-                        </TableCell>
-                        <TableCell className='whitespace-nowrap'>
-                          {formatDateTime(log.end)}
-                        </TableCell>
-                        <TableCell className="text-right font-code">
-                          {formatNumber(log.hours)}
-                        </TableCell>
-                        <TableCell className="text-right font-code">
-                          {formatUSD(log.rate)}
-                        </TableCell>
-                        <TableCell className="text-right font-headline">
-                          {formatUSD(log.hours * log.rate)}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
-                        برای نمایش اطلاعات، با Clockify همگام‌سازی کنید.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-
         <Card className="flex flex-col">
           <CardHeader>
              <div className="flex flex-wrap justify-between items-center gap-2">
@@ -725,6 +652,79 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8">
                         هنوز پرداختی ثبت نشده است.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+        
+        <Card className="flex flex-col">
+           <CardHeader>
+             <div className="flex flex-wrap justify-between items-center gap-2">
+                <div>
+                    <CardTitle>سوابق کاری Clockify</CardTitle>
+                    <CardDescription>
+                      سوابق کاری همگام‌شده از Clockify.
+                    </CardDescription>
+                </div>
+                <div className='flex gap-2 no-print'>
+                    <Button onClick={handleSyncClockify} disabled={isSyncing}>
+                      <RefreshCw className={cn("ml-2", isSyncing && "animate-spin")} />
+                      {isSyncing ? 'در حال دریافت...' : 'همگام‌سازی'}
+                    </Button>
+                </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex-grow overflow-hidden">
+            <ScrollArea className="h-[400px]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[250px]">شرح</TableHead>
+                    <TableHead>شروع</TableHead>
+                    <TableHead>پایان</TableHead>
+                    <TableHead className="text-right">ساعات</TableHead>
+                    <TableHead className="text-right">نرخ</TableHead>
+                    <TableHead className="text-right">جمع</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isSyncing && clockifyWorkLogs.length === 0 ? (
+                      <>
+                          <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                          <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                          <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                      </>
+                  ) : clockifyWorkLogs.length > 0 ? (
+                    clockifyWorkLogs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="font-medium">
+                          {log.description}
+                        </TableCell>
+                        <TableCell>
+                          {formatDateTime(log.start)}
+                        </TableCell>
+                        <TableCell>
+                          {formatDateTime(log.end)}
+                        </TableCell>
+                        <TableCell className="text-right font-code">
+                          {formatNumber(log.hours)}
+                        </TableCell>
+                        <TableCell className="text-right font-code">
+                          {formatUSD(log.rate)}
+                        </TableCell>
+                        <TableCell className="text-right font-headline">
+                          {formatUSD(log.hours * log.rate)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8">
+                        برای نمایش اطلاعات، با Clockify همگام‌سازی کنید.
                       </TableCell>
                     </TableRow>
                   )}
@@ -937,3 +937,5 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
     </div>
   );
 }
+
+    
