@@ -4,7 +4,8 @@ export interface WorkLog {
   hours: number;
   rate: number;
   start: string;
-  end: string;
+  end:string;
+  isManual?: boolean;
 }
 
 export interface Payment {
