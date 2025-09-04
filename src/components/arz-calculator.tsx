@@ -444,7 +444,7 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-8" dir="rtl">
+    <div className="container mx-auto p-4 md:p-8">
       <style>{`
         @media print {
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -478,7 +478,7 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
       </header>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <Card className="shadow-lg">
+        <Card className="flex flex-col">
           <CardHeader>
              <div className="flex flex-wrap justify-between items-center gap-2">
                 <div>
@@ -538,8 +538,8 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
                 </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-auto min-h-[600px] max-h-[70vh]">
+          <CardContent className="flex-grow overflow-hidden">
+            <ScrollArea className="h-[600px] max-h-[70vh]">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -607,7 +607,7 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
           </CardContent>
         </Card>
 
-        <Card className="shadow-lg">
+        <Card className="flex flex-col">
           <CardHeader>
              <div className="flex flex-wrap justify-between items-center gap-2">
                  <div>
@@ -725,8 +725,8 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
                 </Dialog>
              </div>
           </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-auto min-h-[600px] max-h-[70vh]">
+          <CardContent className="flex-grow overflow-hidden">
+            <ScrollArea className="h-[600px] max-h-[70vh]">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -787,7 +787,7 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
         </Card>
       </div>
 
-      <Card className="mt-8 shadow-lg">
+      <Card className="mt-8">
         <CardHeader>
           <CardTitle>خلاصه حساب</CardTitle>
           <CardDescription>
@@ -807,13 +807,13 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
           </div>
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground">جمع پرداختی (دلار)</p>
-            <p className="font-headline text-2xl text-green-600">
+            <p className="font-headline text-2xl text-green-500">
               {formatUSD(totalPaymentsUSD)}
             </p>
           </div>
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground">جمع پرداختی (تومان)</p>
-            <p className="font-headline text-lg text-green-600">
+            <p className="font-headline text-lg text-green-500">
               {formatIRT(totalPaymentsIRT)}
             </p>
           </div>
@@ -850,5 +850,3 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
     </div>
   );
 }
-
-    
