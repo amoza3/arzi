@@ -104,6 +104,7 @@ interface ClockifyTimeEntry {
   _id: string;
 }
 
+const ADMIN_UID = process.env.NEXT_PUBLIC_ADMIN_UID;
 
 export default function ArzCalculator({ user }: ArzCalculatorProps) {
   const [manualWorkLogs, setManualWorkLogs] = useState<WorkLog[]>([]);
@@ -122,6 +123,8 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
   
   const [editingWorkLog, setEditingWorkLog] = useState<WorkLog | null>(null);
   const [isWorkLogDialogOpen, setWorkLogDialogOpen] = useState(false);
+
+  const isAdmin = useMemo(() => user.uid === ADMIN_UID, [user.uid]);
 
   const paymentForm = useForm<z.infer<typeof paymentSchema>>({
     resolver: zodResolver(paymentSchema),
@@ -189,10 +192,20 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
   useEffect(() => {
     async function loadData() {
       if (!user) return;
+      if (!ADMIN_UID) {
+        console.error("ADMIN_UID is not set in environment variables.");
+        toast({
+          variant: 'destructive',
+          title: 'خطای پیکربندی',
+          description: 'شناسه ادمین تنظیم نشده است.',
+        });
+        setIsDataLoaded(true);
+        return;
+      }
       try {
         const [paymentsData, workLogsData] = await Promise.all([
-          getPayments(user.uid),
-          getWorkLogs(user.uid),
+          getPayments(ADMIN_UID),
+          getWorkLogs(ADMIN_UID),
           handleSyncClockify() // Automatically sync with Clockify on initial load
         ]);
         setPayments(paymentsData);
@@ -245,6 +258,7 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
   };
 
   const handlePaymentSubmit = async (values: z.infer<typeof paymentSchema>) => {
+    if (!isAdmin) return;
     const paymentData = {
       ...values,
       date: values.date.getTime(),
@@ -252,13 +266,13 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
     try {
       if (editingPayment) {
         const updatedPayment = { ...editingPayment, ...paymentData };
-        await updatePayment(user.uid, updatedPayment);
+        await updatePayment(ADMIN_UID!, updatedPayment);
         setPayments(
           payments.map((p) => (p.id === updatedPayment.id ? updatedPayment : p))
         );
         toast({ title: 'موفق', description: 'پرداخت ویرایش شد.' });
       } else {
-        const newPayment = await addPayment(user.uid, paymentData);
+        const newPayment = await addPayment(ADMIN_UID!, paymentData);
         setPayments([...payments, newPayment]);
         toast({ title: 'موفق', description: 'پرداخت اضافه شد.' });
       }
@@ -273,8 +287,9 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
   };
 
   const handleDeletePayment = async (id: string) => {
+    if (!isAdmin) return;
     try {
-      await deletePayment(user.uid, id);
+      await deletePayment(ADMIN_UID!, id);
       setPayments(payments.filter((p) => p.id !== id));
       toast({ title: 'موفق', description: 'پرداخت حذف شد.' });
     } catch {
@@ -314,6 +329,7 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
   };
 
   const handleWorkLogSubmit = async (values: z.infer<typeof workLogSchema>) => {
+    if (!isAdmin) return;
     const workLogData = {
       ...values,
       isManual: true,
@@ -324,13 +340,13 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
     try {
       if (editingWorkLog && editingWorkLog.id) {
         const updatedLog = { ...editingWorkLog, ...workLogData };
-        await updateWorkLog(user.uid, updatedLog);
+        await updateWorkLog(ADMIN_UID!, updatedLog);
         setManualWorkLogs(
           manualWorkLogs.map((l) => (l.id === updatedLog.id ? updatedLog : l)).sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
         );
         toast({ title: 'موفق', description: 'رکورد کاری ویرایش شد.' });
       } else {
-        const newLog = await addWorkLog(user.uid, workLogData);
+        const newLog = await addWorkLog(ADMIN_UID!, workLogData);
         setManualWorkLogs([...manualWorkLogs, newLog].sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime()));
         toast({ title: 'موفق', description: 'رکورد کاری اضافه شد.' });
       }
@@ -345,8 +361,9 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
   };
 
   const handleDeleteWorkLog = async (id: string) => {
+    if (!isAdmin) return;
     try {
-      await deleteWorkLog(user.uid, id);
+      await deleteWorkLog(ADMIN_UID!, id);
       setManualWorkLogs(manualWorkLogs.filter((l) => l.id !== id));
       toast({ title: 'موفق', description: 'رکورد کاری حذف شد.' });
     } catch {
@@ -465,16 +482,18 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
           <h1 className="font-headline text-4xl font-bold">محاسبه‌گر ارز</h1>
         </div>
         <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-end">
-          <div className="w-full md:w-auto">
-            <Label>نرخ دلار به تومان</Label>
-            <Input
-              type="number"
-              placeholder="مثال: ۵۰۰۰۰"
-              value={exchangeRate || ''}
-              onChange={(e) => setExchangeRate(Number(e.target.value))}
-              className="w-full text-center font-headline text-lg md:w-48"
-            />
-          </div>
+         {isAdmin && (
+            <div className="w-full md:w-auto">
+              <Label>نرخ دلار به تومان</Label>
+              <Input
+                type="number"
+                placeholder="مثال: ۵۰۰۰۰"
+                value={exchangeRate || ''}
+                onChange={(e) => setExchangeRate(Number(e.target.value))}
+                className="w-full text-center font-headline text-lg md:w-48"
+              />
+            </div>
+          )}
           <Button onClick={handlePrint} variant="outline" className="no-print">
             <Printer className="ml-2" /> چاپ
           </Button>
@@ -486,191 +505,12 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
           <CardHeader>
              <div className="flex flex-wrap justify-between items-center gap-2">
                  <div>
-                    <CardTitle>پرداخت‌ها</CardTitle>
-                    <CardDescription>تمام پرداخت‌های دریافت شده را ثبت کنید.</CardDescription>
+                    <CardTitle>سوابق کاری دستی</CardTitle>
+                    <CardDescription>
+                      سوابق کاری ثبت شده به صورت دستی.
+                    </CardDescription>
                  </div>
-                <Dialog
-                  open={isPaymentDialogOpen}
-                  onOpenChange={(isOpen) => {
-                      if (!isOpen) closePaymentDialog();
-                      setPaymentDialogOpen(isOpen);
-                  }}
-                >
-                  <DialogTrigger asChild>
-                    <Button onClick={() => setEditingPayment(null)} className="mt-2 w-full md:w-auto no-print">
-                      <PlusCircle className="ml-2" /> افزودن پرداخت
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="no-print">
-                    <DialogHeader>
-                      <DialogTitle>{editingPayment ? 'ویرایش' : 'افزودن'} پرداخت</DialogTitle>
-                    </DialogHeader>
-                    <Form {...paymentForm}>
-                      <form
-                        onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)}
-                        className="space-y-4"
-                      >
-                        <FormField
-                          control={paymentForm.control}
-                          name="amountIRT"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>مبلغ (تومان)</FormLabel>
-                              <FormControl>
-                                <Input type="number" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={paymentForm.control}
-                          name="exchangeRate"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>نرخ دلار به تومان (زمان پرداخت)</FormLabel>
-                              <FormControl>
-                                <Input type="number" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                         <FormField
-                          control={paymentForm.control}
-                          name="date"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                              <FormLabel>تاریخ پرداخت</FormLabel>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <FormControl>
-                                    <Button
-                                      variant={'outline'}
-                                      className={cn(
-                                        'w-full pl-3 text-left font-normal',
-                                        !field.value && 'text-muted-foreground'
-                                      )}
-                                    >
-                                      {field.value ? (
-                                        format(field.value, 'PPP')
-                                      ) : (
-                                        <span>یک تاریخ انتخاب کنید</span>
-                                      )}
-                                      <CalendarIcon className="mr-auto h-4 w-4 opacity-50" />
-                                    </Button>
-                                  </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                  <Calendar
-                                    mode="single"
-                                    selected={field.value}
-                                    onSelect={field.onChange}
-                                    disabled={(date) =>
-                                      date > new Date() || date < new Date('1900-01-01')
-                                    }
-                                    initialFocus
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={paymentForm.control}
-                          name="description"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>شرح (اختیاری)</FormLabel>
-                              <FormControl>
-                                <Textarea
-                                  placeholder="مثال: پرداخت برای پروژه X"
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <Button type="submit">ذخیره پرداخت</Button>
-                      </form>
-                    </Form>
-                  </DialogContent>
-                </Dialog>
-             </div>
-          </CardHeader>
-          <CardContent className="flex-grow overflow-hidden">
-            <ScrollArea className="h-[400px] pr-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>تاریخ</TableHead>
-                    <TableHead>شرح</TableHead>
-                    <TableHead className="text-right">مبلغ (تومان)</TableHead>
-                    <TableHead className="text-right">نرخ</TableHead>
-                    <TableHead className="text-right">مبلغ (دلار)</TableHead>
-                    <TableHead className="w-[100px] no-print"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payments.length > 0 ? (
-                    payments.map((p) => (
-                      <TableRow key={p.id}>
-                        <TableCell>
-                          {new Date(p.date).toLocaleDateString('fa-IR')}
-                        </TableCell>
-                         <TableCell>{p.description || '-'}</TableCell>
-                        <TableCell className="text-right font-code">
-                          {formatNumber(p.amountIRT)}
-                        </TableCell>
-                        <TableCell className="text-right font-code">
-                          {formatNumber(p.exchangeRate)}
-                        </TableCell>
-                        <TableCell className="text-right font-headline">
-                          {formatUSD(p.amountIRT / p.exchangeRate)}
-                        </TableCell>
-                        <TableCell className="no-print space-x-1 text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => { setEditingPayment(p); setPaymentDialogOpen(true); }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeletePayment(p.id!)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
-                        هنوز پرداختی ثبت نشده است.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-        
-        <Card className="flex flex-col">
-        <CardHeader>
-           <div className="flex flex-wrap justify-between items-center gap-2">
-              <div>
-                  <CardTitle>سوابق کاری دستی</CardTitle>
-                  <CardDescription>
-                    سوابق کاری ثبت شده به صورت دستی.
-                  </CardDescription>
-              </div>
-              <div className='flex gap-2 no-print'>
+                {isAdmin && (
                   <Dialog open={isWorkLogDialogOpen} onOpenChange={(isOpen) => {
                       if(!isOpen) closeWorkLogDialog();
                       setWorkLogDialogOpen(isOpen);
@@ -733,71 +573,256 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
                           </Form>
                       </DialogContent>
                   </Dialog>
-              </div>
-          </div>
-        </CardHeader>
-        <CardContent className="flex-grow overflow-hidden">
-          <ScrollArea className="h-[400px] pr-4">
+                )}
+             </div>
+          </CardHeader>
+          <CardContent className="flex-grow overflow-hidden">
+            <ScrollArea className="h-[400px] pr-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>شرح</TableHead>
+                      <TableHead>شروع</TableHead>
+                      <TableHead>پایان</TableHead>
+                      <TableHead className="text-right">ساعات</TableHead>
+                      <TableHead className="text-right">نرخ</TableHead>
+                      <TableHead className="text-right">جمع</TableHead>
+                      {isAdmin && <TableHead className="w-[100px] no-print"></TableHead>}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {manualWorkLogs.length > 0 ? (
+                      manualWorkLogs.map((log) => (
+                        <TableRow key={log.id}>
+                          <TableCell className="font-medium max-w-[150px] truncate">
+                            {log.description}
+                          </TableCell>
+                          <TableCell className="font-code text-xs whitespace-nowrap">
+                            {formatDateTime(log.start)}
+                          </TableCell>
+                          <TableCell className="font-code text-xs whitespace-nowrap">
+                            {formatDateTime(log.end)}
+                          </TableCell>
+                          <TableCell className="text-right font-code">
+                            {formatNumber(log.hours)}
+                          </TableCell>
+                          <TableCell className="text-right font-code">
+                            {formatUSD(log.rate)}
+                          </TableCell>
+                          <TableCell className="text-right font-headline">
+                            {formatUSD(log.hours * log.rate)}
+                          </TableCell>
+                          {isAdmin && (
+                            <TableCell className="no-print space-x-1 text-right">
+                              {log.id && (
+                                  <>
+                                      <Button variant="ghost" size="icon" onClick={() => { setEditingWorkLog(log); setWorkLogDialogOpen(true); }}>
+                                          <Edit className="h-4 w-4" />
+                                      </Button>
+                                      <Button variant="ghost" size="icon" onClick={() => handleDeleteWorkLog(log.id!)}>
+                                          <Trash2 className="h-4 w-4 text-destructive" />
+                                      </Button>
+                                  </>
+                              )}
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={isAdmin ? 7: 6} className="text-center py-8">
+                          رکوردی به صورت دستی اضافه نشده است.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+        
+        <Card className="flex flex-col">
+          <CardHeader>
+             <div className="flex flex-wrap justify-between items-center gap-2">
+                 <div>
+                    <CardTitle>پرداخت‌ها</CardTitle>
+                    <CardDescription>تمام پرداخت‌های دریافت شده را ثبت کنید.</CardDescription>
+                 </div>
+                {isAdmin && (
+                  <Dialog
+                    open={isPaymentDialogOpen}
+                    onOpenChange={(isOpen) => {
+                        if (!isOpen) closePaymentDialog();
+                        setPaymentDialogOpen(isOpen);
+                    }}
+                  >
+                    <DialogTrigger asChild>
+                      <Button onClick={() => setEditingPayment(null)} className="mt-2 w-full md:w-auto no-print">
+                        <PlusCircle className="ml-2" /> افزودن پرداخت
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="no-print">
+                      <DialogHeader>
+                        <DialogTitle>{editingPayment ? 'ویرایش' : 'افزودن'} پرداخت</DialogTitle>
+                      </DialogHeader>
+                      <Form {...paymentForm}>
+                        <form
+                          onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)}
+                          className="space-y-4"
+                        >
+                          <FormField
+                            control={paymentForm.control}
+                            name="amountIRT"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>مبلغ (تومان)</FormLabel>
+                                <FormControl>
+                                  <Input type="number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={paymentForm.control}
+                            name="exchangeRate"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>نرخ دلار به تومان (زمان پرداخت)</FormLabel>
+                                <FormControl>
+                                  <Input type="number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                           <FormField
+                            control={paymentForm.control}
+                            name="date"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-col">
+                                <FormLabel>تاریخ پرداخت</FormLabel>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <FormControl>
+                                      <Button
+                                        variant={'outline'}
+                                        className={cn(
+                                          'w-full pl-3 text-left font-normal',
+                                          !field.value && 'text-muted-foreground'
+                                        )}
+                                      >
+                                        {field.value ? (
+                                          format(field.value, 'PPP')
+                                        ) : (
+                                          <span>یک تاریخ انتخاب کنید</span>
+                                        )}
+                                        <CalendarIcon className="mr-auto h-4 w-4 opacity-50" />
+                                      </Button>
+                                    </FormControl>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                      mode="single"
+                                      selected={field.value}
+                                      onSelect={field.onChange}
+                                      disabled={(date) =>
+                                        date > new Date() || date < new Date('1900-01-01')
+                                      }
+                                      initialFocus
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={paymentForm.control}
+                            name="description"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>شرح (اختیاری)</FormLabel>
+                                <FormControl>
+                                  <Textarea
+                                    placeholder="مثال: پرداخت برای پروژه X"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <Button type="submit">ذخیره پرداخت</Button>
+                        </form>
+                      </Form>
+                    </DialogContent>
+                  </Dialog>
+                )}
+             </div>
+          </CardHeader>
+          <CardContent className="flex-grow overflow-hidden">
+            <ScrollArea className="h-[400px] pr-4">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>تاریخ</TableHead>
                     <TableHead>شرح</TableHead>
-                    <TableHead>شروع</TableHead>
-                    <TableHead>پایان</TableHead>
-                    <TableHead className="text-right">ساعات</TableHead>
+                    <TableHead className="text-right">مبلغ (تومان)</TableHead>
                     <TableHead className="text-right">نرخ</TableHead>
-                    <TableHead className="text-right">جمع</TableHead>
-                    <TableHead className="w-[100px] no-print"></TableHead>
+                    <TableHead className="text-right">مبلغ (دلار)</TableHead>
+                    {isAdmin && <TableHead className="w-[100px] no-print"></TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {manualWorkLogs.length > 0 ? (
-                    manualWorkLogs.map((log) => (
-                      <TableRow key={log.id}>
-                        <TableCell className="font-medium max-w-[150px] truncate">
-                          {log.description}
+                  {payments.length > 0 ? (
+                    payments.map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell>
+                          {new Date(p.date).toLocaleDateString('fa-IR')}
                         </TableCell>
-                        <TableCell className="font-code text-xs whitespace-nowrap">
-                          {formatDateTime(log.start)}
-                        </TableCell>
-                        <TableCell className="font-code text-xs whitespace-nowrap">
-                          {formatDateTime(log.end)}
+                         <TableCell>{p.description || '-'}</TableCell>
+                        <TableCell className="text-right font-code">
+                          {formatNumber(p.amountIRT)}
                         </TableCell>
                         <TableCell className="text-right font-code">
-                          {formatNumber(log.hours)}
-                        </TableCell>
-                        <TableCell className="text-right font-code">
-                          {formatUSD(log.rate)}
+                          {formatNumber(p.exchangeRate)}
                         </TableCell>
                         <TableCell className="text-right font-headline">
-                          {formatUSD(log.hours * log.rate)}
+                          {formatUSD(p.amountIRT / p.exchangeRate)}
                         </TableCell>
-                        <TableCell className="no-print space-x-1 text-right">
-                          {log.id && (
-                              <>
-                                  <Button variant="ghost" size="icon" onClick={() => { setEditingWorkLog(log); setWorkLogDialogOpen(true); }}>
-                                      <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteWorkLog(log.id!)}>
-                                      <Trash2 className="h-4 w-4 text-destructive" />
-                                  </Button>
-                              </>
-                          )}
-                        </TableCell>
+                        {isAdmin && (
+                          <TableCell className="no-print space-x-1 text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => { setEditingPayment(p); setPaymentDialogOpen(true); }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeletePayment(p.id!)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8">
-                        رکوردی به صورت دستی اضافه نشده است.
+                      <TableCell colSpan={isAdmin ? 6 : 5} className="text-center py-8">
+                        هنوز پرداختی ثبت نشده است.
                       </TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
-          </ScrollArea>
-        </CardContent>
-      </Card>
+            </ScrollArea>
+          </CardContent>
+        </Card>
 
       </div>
 
@@ -811,12 +836,14 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
                       سوابق کاری همگام‌شده از Clockify.
                     </CardDescription>
                 </div>
-                <div className='flex gap-2 no-print'>
-                    <Button onClick={handleSyncClockify} disabled={isSyncing}>
-                      <RefreshCw className={cn("ml-2", isSyncing && "animate-spin")} />
-                      {isSyncing ? 'در حال دریافت...' : 'همگام‌سازی'}
-                    </Button>
-                </div>
+                {isAdmin && (
+                  <div className='flex gap-2 no-print'>
+                      <Button onClick={handleSyncClockify} disabled={isSyncing}>
+                        <RefreshCw className={cn("ml-2", isSyncing && "animate-spin")} />
+                        {isSyncing ? 'در حال دریافت...' : 'همگام‌سازی'}
+                      </Button>
+                  </div>
+                )}
             </div>
           </CardHeader>
           <CardContent className="flex-grow overflow-hidden">
@@ -924,10 +951,12 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
           </div>
         </CardContent>
         <CardFooter className="flex-col items-start gap-4">
-          <Button onClick={handleGenerateSummary} disabled={isAiLoading} className="no-print">
-            <Bot className="ml-2" />
-            {isAiLoading ? 'در حال تولید...' : 'خلاصه با هوش مصنوعی'}
-          </Button>
+          {isAdmin && (
+            <Button onClick={handleGenerateSummary} disabled={isAiLoading} className="no-print">
+              <Bot className="ml-2" />
+              {isAiLoading ? 'در حال تولید...' : 'خلاصه با هوش مصنوعی'}
+            </Button>
+          )}
           {aiSummary && (
             <div className="mt-4 w-full rounded-lg border bg-muted/50 p-4 text-sm">
               <p className="whitespace-pre-wrap font-body">{aiSummary}</p>
@@ -938,5 +967,3 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
     </div>
   );
 }
-
-    

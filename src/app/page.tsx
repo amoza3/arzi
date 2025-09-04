@@ -8,14 +8,10 @@ import ArzCalculator from '@/components/arz-calculator';
 import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
 
-// TODO: Replace 'YOUR_REAL_USER_ID' with your actual Firebase User ID
-// to see your data in the development environment.
-// You can find your UID by logging into your live app on Vercel,
-// opening the browser console (F12), and typing: `firebase.auth().currentUser.uid`
 const MOCK_USER: User = {
-  uid: 'l0rwK4cDCsTH1UqXO13YkF2elJr2', // <-- IMPORTANT: REPLACE THIS VALUE
+  uid: process.env.NEXT_PUBLIC_ADMIN_UID || 'l0rwK4cDCsTH1UqXO13YkF2elJr2', // Use Admin UID for mock
   email: 'test@example.com',
-  displayName: 'کاربر آزمایشی',
+  displayName: 'کاربر آزمایشی (Admin)',
   photoURL: '',
   emailVerified: true,
   isAnonymous: false,
@@ -39,11 +35,6 @@ export default function Home() {
 
   useEffect(() => {
     if (useMockAuth) {
-      if (MOCK_USER.uid === 'YOUR_REAL_USER_ID') {
-         console.warn(
-          'Using mock auth. Please replace "YOUR_REAL_USER_ID" in src/app/page.tsx with your actual Firebase UID to fetch your data.'
-        );
-      }
       setUser(MOCK_USER);
       setLoading(false);
       return;
