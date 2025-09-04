@@ -145,30 +145,6 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
   });
 
 
-  useEffect(() => {
-    async function loadData() {
-      if (!user) return;
-      try {
-        const [paymentsData, workLogsData] = await Promise.all([
-          getPayments(user.uid),
-          getWorkLogs(user.uid),
-        ]);
-        setPayments(paymentsData);
-        setManualWorkLogs(workLogsData.sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime()));
-      } catch (error) {
-        console.error(error);
-        toast({
-          variant: 'destructive',
-          title: 'خطا در بارگذاری اطلاعات',
-          description: 'خطا در بارگذاری اطلاعات از Firestore.',
-        });
-      } finally {
-        setIsDataLoaded(true);
-      }
-    }
-    loadData();
-  }, [user, toast]);
-
   const handleSyncClockify = async () => {
     setIsSyncing(true);
     try {
@@ -207,6 +183,33 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
       setIsSyncing(false);
     }
   };
+
+  useEffect(() => {
+    async function loadData() {
+      if (!user) return;
+      try {
+        const [paymentsData, workLogsData] = await Promise.all([
+          getPayments(user.uid),
+          getWorkLogs(user.uid),
+        ]);
+        setPayments(paymentsData);
+        setManualWorkLogs(workLogsData.sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime()));
+        // Automatically sync with Clockify on initial load
+        handleSyncClockify();
+      } catch (error) {
+        console.error(error);
+        toast({
+          variant: 'destructive',
+          title: 'خطا در بارگذاری اطلاعات',
+          description: 'خطا در بارگذاری اطلاعات از Firestore.',
+        });
+      } finally {
+        setIsDataLoaded(true);
+      }
+    }
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, toast]);
 
 
   useEffect(() => {
@@ -930,5 +933,3 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
     </div>
   );
 }
-
-    
