@@ -154,7 +154,7 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
           getWorkLogs(user.uid),
         ]);
         setPayments(paymentsData);
-        setManualWorkLogs(workLogsData);
+        setManualWorkLogs(workLogsData.sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime()));
       } catch (error) {
         console.error(error);
         toast({
@@ -188,7 +188,7 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
         start: entry.timeInterval.start,
         end: entry.timeInterval.end,
         isManual: false,
-      }));
+      })).sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime());
 
       setClockifyWorkLogs(formattedWorkLogs);
       toast({
@@ -287,15 +287,17 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
     if (isWorkLogDialogOpen) {
         if (editingWorkLog) {
             workLogForm.reset({
-                ...editingWorkLog
+                ...editingWorkLog,
+                start: editingWorkLog.start ? format(new Date(editingWorkLog.start), "yyyy-MM-dd'T'HH:mm") : '',
+                end: editingWorkLog.end ? format(new Date(editingWorkLog.end), "yyyy-MM-dd'T'HH:mm") : '',
             });
         } else {
             workLogForm.reset({
                 description: '',
                 hours: 0,
                 rate: 8.12,
-                start: new Date().toISOString(),
-                end: new Date().toISOString(),
+                start: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+                end: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
             });
         }
     }
@@ -320,12 +322,12 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
         const updatedLog = { ...editingWorkLog, ...workLogData };
         await updateWorkLog(user.uid, updatedLog);
         setManualWorkLogs(
-          manualWorkLogs.map((l) => (l.id === updatedLog.id ? updatedLog : l))
+          manualWorkLogs.map((l) => (l.id === updatedLog.id ? updatedLog : l)).sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
         );
         toast({ title: 'موفق', description: 'رکورد کاری ویرایش شد.' });
       } else {
         const newLog = await addWorkLog(user.uid, workLogData);
-        setManualWorkLogs([...manualWorkLogs, newLog]);
+        setManualWorkLogs([...manualWorkLogs, newLog].sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime()));
         toast({ title: 'موفق', description: 'رکورد کاری اضافه شد.' });
       }
       closeWorkLogDialog();
@@ -353,9 +355,7 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
   };
 
   const combinedWorkLogs = useMemo(() => {
-    return [...clockifyWorkLogs, ...manualWorkLogs].sort(
-      (a, b) => new Date(b.start).getTime() - new Date(a.start).getTime()
-    );
+    return [...clockifyWorkLogs, ...manualWorkLogs];
   }, [clockifyWorkLogs, manualWorkLogs]);
 
 
@@ -479,58 +479,15 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <Card className="flex flex-col">
-          <CardHeader>
+           <CardHeader>
              <div className="flex flex-wrap justify-between items-center gap-2">
                 <div>
-                    <CardTitle>سوابق کاری</CardTitle>
+                    <CardTitle>سوابق کاری Clockify</CardTitle>
                     <CardDescription>
-                      سوابق کاری ثبت شده دستی و همگام‌شده از Clockify.
+                      سوابق کاری همگام‌شده از Clockify.
                     </CardDescription>
                 </div>
                 <div className='flex gap-2 no-print'>
-                    <Dialog open={isWorkLogDialogOpen} onOpenChange={setWorkLogDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button variant="outline"><PlusCircle className="ml-2" /> افزودن دستی</Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>{editingWorkLog ? 'ویرایش' : 'افزودن'} رکورد کاری</DialogTitle>
-                            </DialogHeader>
-                            <Form {...workLogForm}>
-                                <form onSubmit={workLogForm.handleSubmit(handleWorkLogSubmit)} className="space-y-4">
-                                    <FormField control={workLogForm.control} name="description" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>شرح</FormLabel>
-                                            <FormControl><Textarea placeholder="مثال: کار روی پروژه X" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <FormField control={workLogForm.control} name="hours" render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>ساعت</FormLabel>
-                                                <FormControl><Input type="number" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )} />
-                                        <FormField control={workLogForm.control} name="rate" render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>نرخ (دلار)</FormLabel>
-                                                <FormControl><Input type="number" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )} />
-                                    </div>
-                                    <div className="flex justify-end gap-2">
-                                        <DialogClose asChild>
-                                          <Button type="button" variant="secondary">انصراف</Button>
-                                        </DialogClose>
-                                        <Button type="submit">ذخیره</Button>
-                                    </div>
-                                </form>
-                            </Form>
-                        </DialogContent>
-                    </Dialog>
                     <Button onClick={handleSyncClockify} disabled={isSyncing}>
                       <RefreshCw className={cn("ml-2", isSyncing && "animate-spin")} />
                       {isSyncing ? 'در حال دریافت...' : 'همگام‌سازی'}
@@ -539,7 +496,7 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
             </div>
           </CardHeader>
           <CardContent className="flex-grow overflow-hidden">
-            <ScrollArea className="h-[600px] max-h-[70vh] pr-4">
+            <ScrollArea className="h-[400px] pr-4">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -549,18 +506,17 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
                       <TableHead className="text-right">ساعات</TableHead>
                       <TableHead className="text-right">نرخ</TableHead>
                       <TableHead className="text-right">جمع</TableHead>
-                      <TableHead className="w-[100px] no-print"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {isSyncing ? (
                         <>
-                            <TableRow><TableCell colSpan={7}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                            <TableRow><TableCell colSpan={7}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                            <TableRow><TableCell colSpan={7}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                            <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                            <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                            <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                         </>
-                    ) : combinedWorkLogs.length > 0 ? (
-                      combinedWorkLogs.map((log) => (
+                    ) : clockifyWorkLogs.length > 0 ? (
+                      clockifyWorkLogs.map((log) => (
                         <TableRow key={log.id}>
                           <TableCell className="font-medium max-w-[150px] truncate">
                             {log.description}
@@ -580,24 +536,12 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
                           <TableCell className="text-right font-headline">
                             {formatUSD(log.hours * log.rate)}
                           </TableCell>
-                          <TableCell className="no-print space-x-1 text-right">
-                            {log.isManual && log.id && (
-                                <>
-                                    <Button variant="ghost" size="icon" onClick={() => { setEditingWorkLog(log); setWorkLogDialogOpen(true); }}>
-                                        <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteWorkLog(log.id!)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                </>
-                            )}
-                          </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8">
-                          برای نمایش اطلاعات، با Clockify همگام‌سازی کنید یا رکورد دستی اضافه نمایید.
+                        <TableCell colSpan={6} className="text-center py-8">
+                          برای نمایش اطلاعات، با Clockify همگام‌سازی کنید.
                         </TableCell>
                       </TableRow>
                     )}
@@ -726,7 +670,7 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
              </div>
           </CardHeader>
           <CardContent className="flex-grow overflow-hidden">
-            <ScrollArea className="h-[600px] max-h-[70vh] pr-4">
+            <ScrollArea className="h-[400px] pr-4">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -786,6 +730,142 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mt-8">
+        <CardHeader>
+           <div className="flex flex-wrap justify-between items-center gap-2">
+              <div>
+                  <CardTitle>سوابق کاری دستی</CardTitle>
+                  <CardDescription>
+                    سوابق کاری ثبت شده به صورت دستی.
+                  </CardDescription>
+              </div>
+              <div className='flex gap-2 no-print'>
+                  <Dialog open={isWorkLogDialogOpen} onOpenChange={setWorkLogDialogOpen}>
+                      <DialogTrigger asChild>
+                          <Button variant="outline"><PlusCircle className="ml-2" /> افزودن دستی</Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                          <DialogHeader>
+                              <DialogTitle>{editingWorkLog ? 'ویرایش' : 'افزودن'} رکورد کاری</DialogTitle>
+                          </DialogHeader>
+                          <Form {...workLogForm}>
+                              <form onSubmit={workLogForm.handleSubmit(handleWorkLogSubmit)} className="space-y-4">
+                                  <FormField control={workLogForm.control} name="description" render={({ field }) => (
+                                      <FormItem>
+                                          <FormLabel>شرح</FormLabel>
+                                          <FormControl><Textarea placeholder="مثال: کار روی پروژه X" {...field} /></FormControl>
+                                          <FormMessage />
+                                      </FormItem>
+                                  )} />
+                                  <div className="grid grid-cols-2 gap-4">
+                                      <FormField control={workLogForm.control} name="hours" render={({ field }) => (
+                                          <FormItem>
+                                              <FormLabel>ساعت</FormLabel>
+                                              <FormControl><Input type="number" {...field} /></FormControl>
+                                              <FormMessage />
+                                          </FormItem>
+                                      )} />
+                                      <FormField control={workLogForm.control} name="rate" render={({ field }) => (
+                                          <FormItem>
+                                              <FormLabel>نرخ (دلار)</FormLabel>
+                                              <FormControl><Input type="number" {...field} /></FormControl>
+                                              <FormMessage />
+                                          </FormItem>
+                                      )} />
+                                  </div>
+                                   <div className="grid grid-cols-2 gap-4">
+                                       <FormField control={workLogForm.control} name="start" render={({ field }) => (
+                                          <FormItem>
+                                              <FormLabel>شروع</FormLabel>
+                                              <FormControl><Input type="datetime-local" {...field} /></FormControl>
+                                              <FormMessage />
+                                          </FormItem>
+                                      )} />
+                                      <FormField control={workLogForm.control} name="end" render={({ field }) => (
+                                          <FormItem>
+                                              <FormLabel>پایان</FormLabel>
+                                              <FormControl><Input type="datetime-local" {...field} /></FormControl>
+                                              <FormMessage />
+                                          </FormItem>
+                                      )} />
+                                   </div>
+                                  <div className="flex justify-end gap-2">
+                                      <DialogClose asChild>
+                                        <Button type="button" variant="secondary">انصراف</Button>
+                                      </DialogClose>
+                                      <Button type="submit">ذخیره</Button>
+                                  </div>
+                              </form>
+                          </Form>
+                      </DialogContent>
+                  </Dialog>
+              </div>
+          </div>
+        </CardHeader>
+        <CardContent className="flex-grow overflow-hidden">
+          <ScrollArea className="h-[400px] pr-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>شرح</TableHead>
+                    <TableHead>شروع</TableHead>
+                    <TableHead>پایان</TableHead>
+                    <TableHead className="text-right">ساعات</TableHead>
+                    <TableHead className="text-right">نرخ</TableHead>
+                    <TableHead className="text-right">جمع</TableHead>
+                    <TableHead className="w-[100px] no-print"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {manualWorkLogs.length > 0 ? (
+                    manualWorkLogs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="font-medium max-w-[150px] truncate">
+                          {log.description}
+                        </TableCell>
+                        <TableCell className="font-code text-xs whitespace-nowrap">
+                          {formatDateTime(log.start)}
+                        </TableCell>
+                        <TableCell className="font-code text-xs whitespace-nowrap">
+                          {formatDateTime(log.end)}
+                        </TableCell>
+                        <TableCell className="text-right font-code">
+                          {formatNumber(log.hours)}
+                        </TableCell>
+                        <TableCell className="text-right font-code">
+                          {formatUSD(log.rate)}
+                        </TableCell>
+                        <TableCell className="text-right font-headline">
+                          {formatUSD(log.hours * log.rate)}
+                        </TableCell>
+                        <TableCell className="no-print space-x-1 text-right">
+                          {log.id && (
+                              <>
+                                  <Button variant="ghost" size="icon" onClick={() => { setEditingWorkLog(log); setWorkLogDialogOpen(true); }}>
+                                      <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteWorkLog(log.id!)}>
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                              </>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8">
+                        رکوردی به صورت دستی اضافه نشده است.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
 
       <Card className="mt-8">
         <CardHeader>
