@@ -539,7 +539,7 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
             </div>
           </CardHeader>
           <CardContent className="flex-grow overflow-hidden">
-            <ScrollArea className="h-[600px] max-h-[70vh]">
+            <ScrollArea className="h-[600px] max-h-[70vh] pr-4">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -726,7 +726,7 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
              </div>
           </CardHeader>
           <CardContent className="flex-grow overflow-hidden">
-            <ScrollArea className="h-[600px] max-h-[70vh]">
+            <ScrollArea className="h-[600px] max-h-[70vh] pr-4">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -850,3 +850,5 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
     </div>
   );
 }
+
+    
