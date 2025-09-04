@@ -498,59 +498,57 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
                 </div>
             </div>
           </CardHeader>
-          <CardContent className="flex-grow overflow-hidden">
-            <ScrollArea className="h-[400px] pr-4">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[150px]">شرح</TableHead>
-                      <TableHead className="min-w-[150px]">شروع</TableHead>
-                      <TableHead className="min-w-[150px]">پایان</TableHead>
-                      <TableHead className="text-right">ساعات</TableHead>
-                      <TableHead className="text-right">نرخ</TableHead>
-                      <TableHead className="text-right">جمع</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {isSyncing ? (
-                        <>
-                            <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                            <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                            <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                        </>
-                    ) : clockifyWorkLogs.length > 0 ? (
-                      clockifyWorkLogs.map((log) => (
-                        <TableRow key={log.id}>
-                          <TableCell className="font-medium">
-                            {log.description}
-                          </TableCell>
-                          <TableCell className="font-code text-xs">
-                            {formatDateTime(log.start)}
-                          </TableCell>
-                          <TableCell className="font-code text-xs">
-                            {formatDateTime(log.end)}
-                          </TableCell>
-                          <TableCell className="text-right font-code">
-                            {formatNumber(log.hours)}
-                          </TableCell>
-                          <TableCell className="text-right font-code">
-                            {formatUSD(log.rate)}
-                          </TableCell>
-                          <TableCell className="text-right font-headline">
-                            {formatUSD(log.hours * log.rate)}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8">
-                          برای نمایش اطلاعات، با Clockify همگام‌سازی کنید.
+          <CardContent className="flex-grow overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[250px]">شرح</TableHead>
+                    <TableHead className="min-w-[150px]">شروع</TableHead>
+                    <TableHead className="min-w-[150px]">پایان</TableHead>
+                    <TableHead className="text-right">ساعات</TableHead>
+                    <TableHead className="text-right">نرخ</TableHead>
+                    <TableHead className="text-right">جمع</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isSyncing ? (
+                      <>
+                          <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                          <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                          <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                      </>
+                  ) : clockifyWorkLogs.length > 0 ? (
+                    clockifyWorkLogs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="font-medium">
+                          {log.description}
+                        </TableCell>
+                        <TableCell>
+                          {formatDateTime(log.start)}
+                        </TableCell>
+                        <TableCell>
+                          {formatDateTime(log.end)}
+                        </TableCell>
+                        <TableCell className="text-right font-code">
+                          {formatNumber(log.hours)}
+                        </TableCell>
+                        <TableCell className="text-right font-code">
+                          {formatUSD(log.rate)}
+                        </TableCell>
+                        <TableCell className="text-right font-headline">
+                          {formatUSD(log.hours * log.rate)}
                         </TableCell>
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-            </ScrollArea>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8">
+                        برای نمایش اطلاعات، با Clockify همگام‌سازی کنید.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
           </CardContent>
         </Card>
 
@@ -933,3 +931,5 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
     </div>
   );
 }
+
+    
