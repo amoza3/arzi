@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Bot, Calculator, Edit, PlusCircle, Printer, Trash2 } from 'lucide-react';
+import { Bot, Calculator, Edit, PlusCircle, Printer, RefreshCw, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -12,13 +12,9 @@ import type { User } from 'firebase/auth';
 import { getSummary } from '@/lib/actions';
 import {
   addPayment,
-  addWorkLog,
   deletePayment,
-  deleteWorkLog,
   getPayments,
-  getWorkLogs,
   updatePayment,
-  updateWorkLog,
 } from '@/lib/db';
 import type { Payment, WorkLog } from '@/types';
 import { cn } from '@/lib/utils';
@@ -43,7 +39,6 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -67,12 +62,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from './ui/separator';
 import { Textarea } from './ui/textarea';
-
-const workLogSchema = z.object({
-  description: z.string().min(1, 'توضیحات الزامی است.'),
-  hours: z.coerce.number().positive('ساعت باید عدد مثبت باشد.'),
-  rate: z.coerce.number().positive('نرخ باید عدد مثبت باشد.'),
-});
+import { Skeleton } from './ui/skeleton';
 
 const paymentSchema = z.object({
   amountIRT: z.coerce.number().positive('مبلغ باید عدد مثبت باشد.'),
@@ -87,6 +77,18 @@ interface ArzCalculatorProps {
   user: User;
 }
 
+// Interface for the data coming from the Clockify API
+interface ClockifyTimeEntry {
+  description: string;
+  timeInterval: {
+    duration: number; // in seconds
+  };
+  rate: number;
+  amount: number; // This is the earned amount
+  _id: string;
+}
+
+
 export default function ArzCalculator({ user }: ArzCalculatorProps) {
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -94,19 +96,12 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [aiSummary, setAiSummary] = useState('');
   const [isAiLoading, startAiTransition] = useTransition();
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const { toast } = useToast();
 
-  const [editingWorkLog, setEditingWorkLog] = useState<WorkLog | null>(null);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
-
-  const [isWorkLogDialogOpen, setWorkLogDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setPaymentDialogOpen] = useState(false);
-
-  const workLogForm = useForm<z.infer<typeof workLogSchema>>({
-    resolver: zodResolver(workLogSchema),
-    defaultValues: { description: '', hours: 0, rate: 0 },
-  });
 
   const paymentForm = useForm<z.infer<typeof paymentSchema>>({
     resolver: zodResolver(paymentSchema),
@@ -122,18 +117,14 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
     async function loadData() {
       if (!user) return;
       try {
-        const [logs, paymentsData] = await Promise.all([
-          getWorkLogs(user.uid),
-          getPayments(user.uid),
-        ]);
-        setWorkLogs(logs);
+        const paymentsData = await getPayments(user.uid);
         setPayments(paymentsData);
       } catch (error) {
         console.error(error);
         toast({
           variant: 'destructive',
           title: 'خطا در بارگذاری اطلاعات',
-          description: 'خطا در بارگذاری اطلاعات از Firestore.',
+          description: 'خطا در بارگذاری پرداخت‌ها از Firestore.',
         });
       } finally {
         setIsDataLoaded(true);
@@ -142,20 +133,46 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
     loadData();
   }, [user, toast]);
 
+  const handleSyncClockify = async () => {
+    setIsSyncing(true);
+    try {
+      const response = await fetch('/api/clockify-report');
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const clockifyEntries: ClockifyTimeEntry[] = await response.json();
+      
+      const formattedWorkLogs: WorkLog[] = clockifyEntries.map(entry => ({
+        id: entry._id,
+        description: entry.description || 'بدون شرح',
+        hours: (entry.timeInterval.duration || 0) / 3600,
+        rate: entry.rate || 0,
+      }));
+
+      setWorkLogs(formattedWorkLogs);
+      toast({
+        title: 'همگام‌سازی موفق',
+        description: `${formattedWorkLogs.length} رکورد کاری از Clockify بارگذاری شد.`
+      });
+
+    } catch (error) {
+      console.error("Failed to sync with Clockify:", error);
+      toast({
+        variant: 'destructive',
+        title: 'خطا در همگام‌سازی',
+        description: 'امکان دریافت اطلاعات از Clockify وجود ندارد.',
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+
   useEffect(() => {
     if (exchangeRate > 0 && !paymentForm.getValues('exchangeRate')) {
       paymentForm.setValue('exchangeRate', exchangeRate);
     }
   }, [exchangeRate, paymentForm]);
-
-  useEffect(() => {
-    if (editingWorkLog) {
-      workLogForm.reset(editingWorkLog);
-      setWorkLogDialogOpen(true);
-    } else {
-      workLogForm.reset({ description: '', hours: 0, rate: 0 });
-    }
-  }, [editingWorkLog, workLogForm]);
 
   useEffect(() => {
     if (editingPayment) {
@@ -174,52 +191,9 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
     }
   }, [editingPayment, paymentForm, exchangeRate]);
 
-  const closeWorkLogDialog = () => {
-    setEditingWorkLog(null);
-    setWorkLogDialogOpen(false);
-  };
-
   const closePaymentDialog = () => {
     setEditingPayment(null);
     setPaymentDialogOpen(false);
-  };
-
-  const handleWorkLogSubmit = async (values: z.infer<typeof workLogSchema>) => {
-    try {
-      if (editingWorkLog) {
-        const updatedLog = { ...editingWorkLog, ...values };
-        await updateWorkLog(user.uid, updatedLog);
-        setWorkLogs(
-          workLogs.map((log) => (log.id === updatedLog.id ? updatedLog : log))
-        );
-        toast({ title: 'موفق', description: 'سابقه کار ویرایش شد.' });
-      } else {
-        const newLog = await addWorkLog(user.uid, values);
-        setWorkLogs([...workLogs, newLog]);
-        toast({ title: 'موفق', description: 'سابقه کار اضافه شد.' });
-      }
-      closeWorkLogDialog();
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'خطا',
-        description: `خطا در ${editingWorkLog ? 'ویرایش' : 'افزودن'} سابقه کار.`,
-      });
-    }
-  };
-
-  const handleDeleteWorkLog = async (id: string) => {
-    try {
-      await deleteWorkLog(user.uid, id);
-      setWorkLogs(workLogs.filter((log) => log.id !== id));
-      toast({ title: 'موفق', description: 'سابقه کار حذف شد.' });
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'خطا',
-        description: 'خطا در حذف سابقه کار.',
-      });
-    }
   };
 
   const handlePaymentSubmit = async (values: z.infer<typeof paymentSchema>) => {
@@ -370,74 +344,18 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>سوابق کاری</CardTitle>
-            <CardDescription>
-              ساعات و نرخ کار خود را ثبت کنید.
-            </CardDescription>
-            <Dialog
-              open={isWorkLogDialogOpen}
-              onOpenChange={setWorkLogDialogOpen}
-            >
-              <DialogTrigger asChild>
-                <Button className="mt-2 w-full md:w-auto no-print">
-                  <PlusCircle className="ml-2" /> افزودن رکورد
+            <div className='flex justify-between items-start'>
+                <div>
+                    <CardTitle>سوابق کاری</CardTitle>
+                    <CardDescription>
+                      ساعات کاری ثبت شده در Clockify.
+                    </CardDescription>
+                </div>
+                <Button onClick={handleSyncClockify} disabled={isSyncing} className="no-print">
+                  <RefreshCw className={cn("ml-2", isSyncing && "animate-spin")} />
+                  {isSyncing ? 'در حال دریافت...' : 'همگام‌سازی با Clockify'}
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="no-print">
-                <DialogHeader>
-                  <DialogTitle>{editingWorkLog ? 'ویرایش' : 'افزودن'} سابقه کار</DialogTitle>
-                </DialogHeader>
-                <Form {...workLogForm}>
-                  <form
-                    onSubmit={workLogForm.handleSubmit(handleWorkLogSubmit)}
-                    className="space-y-4"
-                  >
-                    <FormField
-                      control={workLogForm.control}
-                      name="description"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>شرح</FormLabel>
-                          <FormControl>
-                            <Input placeholder="مثال: توسعه فیچر" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={workLogForm.control}
-                        name="hours"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>ساعات</FormLabel>
-                            <FormControl>
-                              <Input type="number" step="0.1" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={workLogForm.control}
-                        name="rate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>نرخ (دلار/ساعت)</FormLabel>
-                            <FormControl>
-                              <Input type="number" step="0.01" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <Button type="submit">ذخیره</Button>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
@@ -447,14 +365,19 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
                   <TableHead className="text-right">ساعات</TableHead>
                   <TableHead className="text-right">نرخ</TableHead>
                   <TableHead className="text-right">جمع</TableHead>
-                  <TableHead className="w-[100px] no-print"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {workLogs.length > 0 ? (
+                {isSyncing ? (
+                    <>
+                        <TableRow><TableCell colSpan={4}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                    </>
+                ) : workLogs.length > 0 ? (
                   workLogs.map((log) => (
                     <TableRow key={log.id}>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium max-w-xs truncate">
                         {log.description}
                       </TableCell>
                       <TableCell className="text-right font-code">
@@ -466,28 +389,12 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
                       <TableCell className="text-right font-headline">
                         {formatUSD(log.hours * log.rate)}
                       </TableCell>
-                      <TableCell className="no-print space-x-1 text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setEditingWorkLog(log)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteWorkLog(log.id!)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center">
-                      هنوز سابقه کاری ثبت نشده است.
+                    <TableCell colSpan={4} className="text-center">
+                      برای نمایش اطلاعات، با Clockify همگام‌سازی کنید.
                     </TableCell>
                   </TableRow>
                 )}
