@@ -113,7 +113,7 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [aiSummary, setAiSummary] = useState('');
   const [isAiLoading, startAiTransition] = useTransition();
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(true);
 
   const { toast } = useToast();
 
@@ -167,10 +167,12 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
       })).sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime());
 
       setClockifyWorkLogs(formattedWorkLogs);
-      toast({
-        title: 'همگام‌سازی موفق',
-        description: `${formattedWorkLogs.length} رکورد کاری از Clockify بارگذاری شد.`
-      });
+      if (isDataLoaded) { // Avoid showing toast on initial load
+        toast({
+          title: 'همگام‌سازی موفق',
+          description: `${formattedWorkLogs.length} رکورد کاری از Clockify بارگذاری شد.`
+        });
+      }
 
     } catch (error) {
       console.error("Failed to sync with Clockify:", error);
@@ -191,11 +193,10 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
         const [paymentsData, workLogsData] = await Promise.all([
           getPayments(user.uid),
           getWorkLogs(user.uid),
+          handleSyncClockify() // Automatically sync with Clockify on initial load
         ]);
         setPayments(paymentsData);
         setManualWorkLogs(workLogsData.sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime()));
-        // Automatically sync with Clockify on initial load
-        handleSyncClockify();
       } catch (error) {
         console.error(error);
         toast({
@@ -498,20 +499,21 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
                 </div>
             </div>
           </CardHeader>
-          <CardContent className="flex-grow overflow-y-auto">
+          <CardContent className="flex-grow overflow-hidden">
+            <ScrollArea className="h-[400px] pr-4">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="min-w-[250px]">شرح</TableHead>
-                    <TableHead className="min-w-[150px]">شروع</TableHead>
-                    <TableHead className="min-w-[150px]">پایان</TableHead>
+                    <TableHead>شروع</TableHead>
+                    <TableHead>پایان</TableHead>
                     <TableHead className="text-right">ساعات</TableHead>
                     <TableHead className="text-right">نرخ</TableHead>
                     <TableHead className="text-right">جمع</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isSyncing ? (
+                  {isSyncing && clockifyWorkLogs.length === 0 ? (
                       <>
                           <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                           <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
@@ -523,10 +525,10 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
                         <TableCell className="font-medium">
                           {log.description}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className='whitespace-nowrap'>
                           {formatDateTime(log.start)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className='whitespace-nowrap'>
                           {formatDateTime(log.end)}
                         </TableCell>
                         <TableCell className="text-right font-code">
@@ -549,6 +551,7 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
                   )}
                 </TableBody>
               </Table>
+            </ScrollArea>
           </CardContent>
         </Card>
 
@@ -742,9 +745,12 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
                   </CardDescription>
               </div>
               <div className='flex gap-2 no-print'>
-                  <Dialog open={isWorkLogDialogOpen} onOpenChange={setWorkLogDialogOpen}>
+                  <Dialog open={isWorkLogDialogOpen} onOpenChange={(isOpen) => {
+                      if(!isOpen) closeWorkLogDialog();
+                      setWorkLogDialogOpen(isOpen);
+                  }}>
                       <DialogTrigger asChild>
-                          <Button variant="outline"><PlusCircle className="ml-2" /> افزودن دستی</Button>
+                          <Button variant="outline" onClick={() => setEditingWorkLog(null)}><PlusCircle className="ml-2" /> افزودن دستی</Button>
                       </DialogTrigger>
                       <DialogContent>
                           <DialogHeader>
@@ -793,7 +799,7 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
                                    </div>
                                   <div className="flex justify-end gap-2">
                                       <DialogClose asChild>
-                                        <Button type="button" variant="secondary">انصراف</Button>
+                                        <Button type="button" variant="secondary" onClick={closeWorkLogDialog}>انصراف</Button>
                                       </DialogClose>
                                       <Button type="submit">ذخیره</Button>
                                   </div>
@@ -931,5 +937,3 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
     </div>
   );
 }
-
-    
