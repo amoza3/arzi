@@ -81,6 +81,8 @@ interface ArzCalculatorProps {
 interface ClockifyTimeEntry {
   description: string;
   timeInterval: {
+    start: string;
+    end: string;
     duration: number; // in seconds
   };
   rate: number;
@@ -142,11 +144,15 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
       }
       const clockifyEntries: ClockifyTimeEntry[] = await response.json();
       
+      const CORRECT_RATE = 8.12;
+
       const formattedWorkLogs: WorkLog[] = clockifyEntries.map(entry => ({
         id: entry._id,
         description: entry.description || 'بدون شرح',
         hours: (entry.timeInterval.duration || 0) / 3600,
-        rate: entry.rate || 0,
+        rate: CORRECT_RATE,
+        start: entry.timeInterval.start,
+        end: entry.timeInterval.end,
       }));
 
       setWorkLogs(formattedWorkLogs);
@@ -299,6 +305,20 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
   const formatNumber = (num: number) =>
     new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(num);
 
+  const formatDateTime = (dateString: string) => {
+    try {
+        return new Intl.DateTimeFormat('fa-IR', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+        }).format(new Date(dateString));
+    } catch (e) {
+        return 'تاریخ نامعتبر'
+    }
+  }
+
   if (!isDataLoaded) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -362,6 +382,8 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead>شرح</TableHead>
+                  <TableHead>شروع</TableHead>
+                  <TableHead>پایان</TableHead>
                   <TableHead className="text-right">ساعات</TableHead>
                   <TableHead className="text-right">نرخ</TableHead>
                   <TableHead className="text-right">جمع</TableHead>
@@ -370,15 +392,21 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
               <TableBody>
                 {isSyncing ? (
                     <>
-                        <TableRow><TableCell colSpan={4}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                        <TableRow><TableCell colSpan={4}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                        <TableRow><TableCell colSpan={4}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                        <TableRow><TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                     </>
                 ) : workLogs.length > 0 ? (
                   workLogs.map((log) => (
                     <TableRow key={log.id}>
-                      <TableCell className="font-medium max-w-xs truncate">
+                      <TableCell className="font-medium max-w-[150px] truncate">
                         {log.description}
+                      </TableCell>
+                      <TableCell className="font-code text-xs whitespace-nowrap">
+                        {log.start ? formatDateTime(log.start) : '-'}
+                      </TableCell>
+                      <TableCell className="font-code text-xs whitespace-nowrap">
+                        {log.end ? formatDateTime(log.end) : '-'}
                       </TableCell>
                       <TableCell className="text-right font-code">
                         {formatNumber(log.hours)}
@@ -393,7 +421,7 @@ export default function ArzCalculator({ user }: ArzCalculatorProps) {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center">
+                    <TableCell colSpan={6} className="text-center">
                       برای نمایش اطلاعات، با Clockify همگام‌سازی کنید.
                     </TableCell>
                   </TableRow>

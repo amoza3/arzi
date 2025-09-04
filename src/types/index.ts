@@ -3,6 +3,8 @@ export interface WorkLog {
   description: string;
   hours: number;
   rate: number;
+  start: string;
+  end: string;
 }
 
 export interface Payment {
